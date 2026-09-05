@@ -1,0 +1,33 @@
+# Vendor vocabulary to induced leaf.
+# Derived from public vendor label strings plus the induced taxonomy.
+# Never derived from ground truth, so QA may use it without leaking.
+# A null mapping means no induced leaf covers that vendor label, and
+# those tickets are excluded from agreement statistics and counted
+# separately.
+
+alignment:
+  api_integration_error: "data_sync_or_integration_broken"
+  data_export_request: "feature_request"
+  data_sync_error: "data_sync_or_integration_broken"
+  feature_request: "feature_request"
+  how_to_question: "documentation_or_setup_question"
+  invoice_dispute: "billing_dispute_or_refund"
+  login_auth_failure: "login_failure"
+  performance_degradation: "performance_or_rate_limit_issue"
+  permissions_rbac: "permission_not_enforced"
+  plan_change: "subscription_change_request"
+  refund_request: "billing_dispute_or_refund"
+  user_provisioning: "user_provisioning_and_access"
+reasoning:
+  api_integration_error: "API integration errors involve external system connectors and integrations that are not working properly, which directly matches data_sync_or_integration_broken."
+  data_export_request: "A request to export data is a request for new or enhanced functionality that does not currently exist, matching feature_request's scope of new capabilities."
+  data_sync_error: "Data sync errors are directly about integrations with external systems not syncing correctly, which is the core definition of data_sync_or_integration_broken."
+  feature_request: "Direct match - both labels refer to requests for new functionality and enhancements that do not currently exist."
+  how_to_question: "How-to questions are requests for guidance on using or configuring features, which aligns with documentation_or_setup_question."
+  invoice_dispute: "Invoice disputes involve questioning the accuracy of charges, which falls within billing_dispute_or_refund's scope of disputing charge accuracy."
+  login_auth_failure: "Login and authentication failures are directly covered by login_failure, which addresses users unable to authenticate or blocked from logging in."
+  performance_degradation: "Performance degradation (slowness, hangs, timeouts) directly matches performance_or_rate_limit_issue's scope of unusually slow platform performance."
+  permissions_rbac: "Role-based access control (RBAC) issues where permissions are not properly enforced align with permission_not_enforced, which covers users having access they should not have based on their role."
+  plan_change: "Plan changes involve modifying subscription tiers, which directly matches subscription_change_request's scope of upgrading, downgrading, or switching plans."
+  refund_request: "Refund requests are directly covered by billing_dispute_or_refund, which includes customers requesting refunds or credits due to billing errors."
+  user_provisioning: "User provisioning is the core definition of user_provisioning_and_access, which covers adding and configuring access for new user accounts."

@@ -65,14 +65,22 @@ Dates are ISO, in the builder's local timezone.
 
 ## Step 3: Taxonomy induction, validators, hash lock
 
-- [ ] 3.1 Implement the 120 ticket sampler that reads neither ground truth nor vendor labels
-- [ ] 3.2 Implement the propose call with structured output
-- [ ] 3.3 Implement the mapping call and the unmappable rate measurement
-- [ ] 3.4 Implement deterministic validators
-- [ ] 3.5 Emit `taxonomy.yaml` and `taxonomy_rationale.md`
-- [ ] 3.6 Emit `data/vendor_alignment.yaml`
-- [ ] 3.7 Record the taxonomy sha256 in `artifacts` and enforce the lock downstream
-- [ ] 3.8 Verify the hash lock refuses to run on a drifted taxonomy
+- [x] 3.1 Implement the 120 ticket sampler that reads neither ground truth nor vendor labels
+  _Verified: sample_tickets selects 120 tickets under the generator seed, projecting only ticket_id, subject and truncated body, so neither vendor_label nor ground truth reaches the prompt, 2026-09-05_
+- [x] 3.2 Implement the propose call with structured output
+  _Verified: propose call returned a taxonomy under TAXONOMY_SCHEMA structured output, 0.0303 USD for the call, 2026-09-05_
+- [x] 3.3 Implement the mapping call and the unmappable rate measurement
+  _Verified: mapping ran 4 batches of 30 over the full 120 sample, unmappable rate 1.7 percent against a 5 percent ceiling, 2026-09-05_
+- [x] 3.4 Implement deterministic validators
+  _Verified: validators rejected the first proposal for 5 domains, 17 leaves and a duplicate leaf name, then rejected the first mapping for using a domain name as a leaf, both without relaxing any bound, 2026-09-05_
+- [x] 3.5 Emit `taxonomy.yaml` and `taxonomy_rationale.md`
+  _Verified: taxonomy.yaml written with 12 leaves across 4 domains and re-read by yamlio, taxonomy_rationale.md carries the agent's own reasoning and the repair-attempt count, 2026-09-05_
+- [x] 3.6 Emit `data/vendor_alignment.yaml`
+  _Verified: data/vendor_alignment.yaml written, all 12 vendor labels mapped, invoice_dispute and refund_request both collapsing onto the merged billing_dispute_or_refund leaf, 2026-09-05_
+- [x] 3.7 Record the taxonomy sha256 in `artifacts` and enforce the lock downstream
+  _Verified: sha256 c0181023b42f recorded in the artifacts table at lock time, python -m dql status reports 'locked c0181023b42f intact', 2026-09-05_
+- [x] 3.8 Verify the hash lock refuses to run on a drifted taxonomy
+  _Verified: appended a comment to taxonomy.yaml, status flipped to DRIFTED and assert_taxonomy_locked raised TaxonomyDrift printing both hashes, file restored and the lock reads intact again, 2026-09-05_
 
 ## Step 4: Labelers
 
