@@ -1,0 +1,19 @@
+[project]
+name = "data-quality-loop"
+version = "0.1.0"
+description = "Taxonomy induction, programmatic labeling, quality measurement, human-in-the-loop review, and a measured dataset improvement cycle."
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic",
+    "pydantic",
+    "rapidfuzz",
+    "scikit-learn",
+    "rich",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+email = ["resend"]
+
+[tool.setuptools.packages.find]
+include = ["dql*"]
