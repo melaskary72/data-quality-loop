@@ -317,10 +317,15 @@ asserted.
 
 ## 9. Eval harness
 
-`eval/harness.py` is the only module permitted to open `data/ground_truth.jsonl`.
-`scripts/check_contract.py` greps the repo for that path and fails on any
-reference outside `eval/`, with one carve out: `dql/generate.py` writes the file
-and is allowed to name it. The carve out is narrow, explicit, and restated in
+`eval/harness.py` is the only *pipeline adjacent* module permitted to open
+`data/ground_truth.jsonl`. `scripts/check_contract.py` greps the repo for that
+path and fails on any reference outside `eval/`, with two carve outs:
+`dql/generate.py` writes the file and is allowed to name it, and
+`scripts/verify_seeds.py` reads it because proving the seeded counts are real is
+the honesty mechanism the repo rests on. Neither is imported by any labeling,
+QA, review, improvement, report, or export code path. The generator carve out is
+further constrained: the contract check fails if the generator ever *reads* the
+path it is permitted to write. Both carve outs are restated in
 `BUILD_CONTRACT.md`, because an unexplained exception in a lint rule is how
 contracts rot.
 

@@ -40,17 +40,28 @@ Dates are ISO, in the builder's local timezone.
 
 ## Step 2: Corpus generator and seed verification
 
-- [ ] 2.1 Implement the hidden ground-truth taxonomy, 4 domains and 12 leaves
-- [ ] 2.2 Implement templated and combinatorial ticket synthesis, fixed seed, no LLM calls
-- [ ] 2.3 Plant 40 vendor label errors from a plausible confusion map
-- [ ] 2.4 Plant 18 near-duplicate pairs by paraphrase transform
-- [ ] 2.5 Plant 30 ambiguous tickets with `true_label` plus `acceptable_alt`
-- [ ] 2.6 Plant 25 tickets with synthetic PII, spans recorded
-- [ ] 2.7 Plant 12 mixed English and Arabic tickets
-- [ ] 2.8 Write `data/ground_truth.jsonl` and `data/seed_manifest.json`
-- [ ] 2.9 Implement `scripts/verify_seeds.py`
-- [ ] 2.10 Verify all seeded counts match the manifest
-- [ ] 2.11 Verify generation is deterministic across two runs
+- [x] 2.1 Implement the hidden ground-truth taxonomy, 4 domains and 12 leaves
+  _Verified: dql/templates.py defines 4 domains and 12 leaves, CLASS_WEIGHTS sums to 1.0, deliberately uneven so frequent-class bias stays visible, 2026-09-04_
+- [x] 2.2 Implement templated and combinatorial ticket synthesis, fixed seed, no LLM calls
+  _Verified: `python -m dql generate` produced 600 tickets with 0 LLM calls and 0.0000 USD, subject and body paired by template index and sharing one filler context per ticket, 2026-09-04_
+- [x] 2.3 Plant 40 vendor label errors from a plausible confusion map
+  _Verified: 40 seeded errors present, all drawn from CONFUSION_MAP, 0 seeded errors carry the correct vendor label, and 0 unseeded tickets disagree with truth, 2026-09-04_
+- [x] 2.4 Plant 18 near-duplicate pairs by paraphrase transform
+  _Verified: 18 pairs, 36 members, 18 canonical, token_set_ratio 90.9 to 100.0, and unrelated tickets sit at 77.5 at the 99th percentile so the pairs separate cleanly, 2026-09-04_
+- [x] 2.5 Plant 30 ambiguous tickets with `true_label` plus `acceptable_alt`
+  _Verified: 30 ambiguous tickets, every one carries an acceptable_alt distinct from its primary, and 0 unambiguous tickets carry a stray alternate, 2026-09-04_
+- [x] 2.6 Plant 25 tickets with synthetic PII, spans recorded
+  _Verified: 25 PII tickets, every recorded span re-reads as the exact planted substring in the final body, 0 spans on clean tickets, 2026-09-04_
+- [x] 2.7 Plant 12 mixed English and Arabic tickets
+  _Verified: 12 multilingual tickets all contain Arabic script, and 0 unmarked tickets contain any Arabic characters, 2026-09-04_
+- [x] 2.8 Write `data/ground_truth.jsonl` and `data/seed_manifest.json`
+  _Verified: data/ground_truth.jsonl and data/seed_manifest.json written by the generator, which never reads either back, enforced by scripts/check_contract.py, 2026-09-04_
+- [x] 2.9 Implement `scripts/verify_seeds.py`
+  _Verified: scripts/verify_seeds.py implemented with 24 checks covering counts, well-formedness, detectability, and disjointness, 2026-09-04_
+- [x] 2.10 Verify all seeded counts match the manifest
+  _Verified: `python scripts/verify_seeds.py` exits 0 with all 24 checks green, every manifest count matching what is planted, 2026-09-04_
+- [x] 2.11 Verify generation is deterministic across two runs
+  _Verified: `python -m dql generate` run twice, sha256 of data/ground_truth.jsonl identical at 12aba13a6cee, ticket rows identical, 2026-09-04_
 
 ## Step 3: Taxonomy induction, validators, hash lock
 

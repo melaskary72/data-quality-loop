@@ -1,0 +1,49 @@
+{
+  "count": 600,
+  "generator_version": "1.0",
+  "ground_truth_taxonomy": {
+    "account": [
+      "user_provisioning",
+      "permissions_rbac",
+      "data_export_request"
+    ],
+    "billing": [
+      "invoice_dispute",
+      "refund_request",
+      "plan_change"
+    ],
+    "product": [
+      "feature_request",
+      "how_to_question"
+    ],
+    "technical": [
+      "login_auth_failure",
+      "data_sync_error",
+      "performance_degradation",
+      "api_integration_error"
+    ]
+  },
+  "observed_class_distribution": {
+    "api_integration_error": 53,
+    "data_export_request": 27,
+    "data_sync_error": 44,
+    "feature_request": 35,
+    "how_to_question": 80,
+    "invoice_dispute": 72,
+    "login_auth_failure": 83,
+    "performance_degradation": 39,
+    "permissions_rbac": 55,
+    "plan_change": 45,
+    "refund_request": 27,
+    "user_provisioning": 40
+  },
+  "phenomena_are_disjoint": true,
+  "seed": 20260904,
+  "seeded": {
+    "ambiguous": 30,
+    "duplicate_pairs": 18,
+    "label_errors": 40,
+    "multilingual": 12,
+    "pii": 25
+  }
+}

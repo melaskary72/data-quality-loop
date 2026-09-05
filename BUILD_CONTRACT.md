@@ -33,13 +33,22 @@ ad hoc code:
 
 ## C3. Sealed ground truth
 
-`data/ground_truth.jsonl` is read **only** by code under `eval/`.
+`data/ground_truth.jsonl` is read **only** by code under `eval/`, plus the one
+verification tool named below.
 
 Labeling, QA, review, improvement, report, and export components must never
 import it, open it, or otherwise consult it, directly or transitively.
 
-One carve out, narrow and explicit: `dql/generate.py` **writes** the file, and
-is therefore permitted to name the path. It never reads it back.
+Two carve outs, both narrow and both explicit:
+
+1. `dql/generate.py` **writes** the file, and is therefore permitted to name the
+   path. It never reads it back, and the contract check enforces that: a read
+   call on that path inside the generator is a violation.
+2. `scripts/verify_seeds.py` **reads** the file. It is a verification tool, not
+   a pipeline component: nothing in the labeling, QA, review, improvement,
+   report, or export path imports it, and its output is an assertion result,
+   never a label. It exists to prove the seeded counts are real, which is the
+   honesty mechanism the whole repo rests on.
 
 `scripts/check_contract.py` enforces this by scanning the repo for references to
 the path outside `eval/`, allowing only the generator carve out, and exiting non

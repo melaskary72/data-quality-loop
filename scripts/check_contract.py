@@ -21,7 +21,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 GROUND_TRUTH = "ground_truth.jsonl"
 GT_ALLOWED = {"eval", "scripts/check_contract.py", "specs", "docs", "README.md",
-              "BUILD_CONTRACT.md", "REPORT.md"}
+              "BUILD_CONTRACT.md", "REPORT.md",
+              # Verification tool, not a pipeline component. Nothing in the
+              # labeling, QA, review, improvement, report, or export path
+              # imports it. See BUILD_CONTRACT C3 carve out 2.
+              "scripts/verify_seeds.py"}
 GT_CODE_CARVE_OUT = {"dql/generate.py"}  # writes the file, never reads it back
 
 ALLOWLIST = {
