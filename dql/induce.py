@@ -34,6 +34,7 @@ MIN_DOMAINS, MAX_DOMAINS = 2, 4
 MIN_LEAVES, MAX_LEAVES = 8, 14
 MIN_BOUNDARY_EXAMPLES = 2
 MAX_UNMAPPABLE_RATE = 0.05
+MIN_LEAVES_PER_DOMAIN = 2
 MAX_REPAIR_ATTEMPTS = 3
 
 UNMAPPABLE = "unmappable"
@@ -143,6 +144,7 @@ Design a two level taxonomy from the tickets you are given.
 Hard constraints:
 - between 2 and 4 domains
 - between 8 and 14 leaf categories in total, across all domains
+- every domain holds at least 2 leaves, a one leaf domain is not a domain
 - leaf names are lower_snake_case, specific, and mutually exclusive
 - every leaf needs a definition, at least two inclusion criteria, at least one \
 exclusion criterion, and at least two boundary examples
@@ -166,6 +168,7 @@ Fix every problem listed. The constraints are not negotiable and are not being \
 relaxed for you:
 - between 2 and 4 domains
 - between 8 and 14 leaf categories in total, across all domains
+- every domain holds at least 2 leaves
 - no two leaves may share a name, anywhere in the taxonomy
 - leaf names are lower_snake_case
 - every leaf needs a definition, at least two inclusion criteria, at least one \
@@ -216,6 +219,43 @@ Here is the induced taxonomy:
 # --------------------------------------------------------------------------
 # sampling
 # --------------------------------------------------------------------------
+
+def sanitize_prose(text: str) -> str:
+    """Normalize em and en dashes out of model-written prose.
+
+    BUILD_CONTRACT C9 forbids em dashes anywhere in the repo, and the agent
+    writes prose that lands in taxonomy.yaml and taxonomy_rationale.md. This is
+    punctuation normalization only: no word is added, removed, or reordered,
+    and the artifacts say so where they claim to keep the reasoning verbatim.
+    """
+    if not text:
+        return text
+    return (
+        text.replace(" \u2014 ", ", ").replace("\u2014", ", ")
+            .replace(" \u2013 ", ", ").replace("\u2013", ", ")
+    )
+
+
+def sanitize_taxonomy(taxonomy: dict) -> dict:
+    """Apply prose normalization to every free-text field in a proposal."""
+    out = {"domains": [], "rationale": sanitize_prose(taxonomy.get("rationale", ""))}
+    for domain in taxonomy["domains"]:
+        leaves = []
+        for leaf in domain["leaves"]:
+            leaves.append({
+                "name": leaf["name"],
+                "definition": sanitize_prose(leaf["definition"]),
+                "inclusion_criteria": [sanitize_prose(c) for c in leaf["inclusion_criteria"]],
+                "exclusion_criteria": [sanitize_prose(c) for c in leaf["exclusion_criteria"]],
+                "boundary_examples": [sanitize_prose(c) for c in leaf["boundary_examples"]],
+            })
+        out["domains"].append({
+            "name": domain["name"],
+            "description": sanitize_prose(domain.get("description", "")),
+            "leaves": leaves,
+        })
+    return out
+
 
 def sample_tickets(conn, seed: int, n: int) -> list[dict]:
     """Deterministic sample. Reads subject and body only: no vendor label, no
@@ -297,8 +337,16 @@ def validate_structure(taxonomy: dict) -> list[str]:
         problems.append(f"duplicate domain names: {dup_domains}")
 
     for domain in domains:
-        if not domain.get("leaves"):
-            problems.append(f"domain {domain.get('name')!r} has no leaves")
+        # A domain holding one leaf is not a domain, it is a leaf with an extra
+        # heading. It also signals that the agent ran out of room against the
+        # leaf ceiling and parked a leftover somewhere. Caught deterministically
+        # after a proposal shipped `support_and_operations` with a single leaf.
+        if len(domain.get("leaves", [])) < MIN_LEAVES_PER_DOMAIN:
+            problems.append(
+                f"domain {domain.get('name')!r} has "
+                f"{len(domain.get('leaves', []))} leaves, minimum is "
+                f"{MIN_LEAVES_PER_DOMAIN}"
+            )
         for leaf in domain.get("leaves", []):
             name = leaf.get("name", "<unnamed>")
             if not leaf.get("definition", "").strip():
@@ -375,8 +423,11 @@ def run(fresh: bool = False, relock: bool = False) -> int:
             f"(subject and body only, no vendor label, no ground truth)."
         )
 
-        run_id = store.start_run(conn, "induce", model=llm.get_model())
-        client = llm.Client(conn, run_id, fresh=fresh)
+        model = llm.get_induce_model()
+        run_id = store.start_run(conn, "induce", model=model)
+        client = llm.Client(conn, run_id, fresh=fresh, model=model)
+        console.print(f"Induction model: [bold]{model}[/bold] "
+                      f"(labeling uses {llm.get_model()})")
 
         # -- 1. propose ----------------------------------------------------
         console.print("\n[bold]1. proposing a taxonomy[/bold]")
@@ -385,7 +436,8 @@ def run(fresh: bool = False, relock: bool = False) -> int:
             user="Here are support tickets sampled from the corpus.\n\n"
                  + render_tickets(sample[:PROPOSE_SIZE]),
             schema=TAXONOMY_SCHEMA,
-            max_tokens=8000,
+            max_tokens=32000,
+            stream=True,
         )
         taxonomy = proposal.data
         console.print(
@@ -420,7 +472,8 @@ def run(fresh: bool = False, relock: bool = False) -> int:
                      + "\n\nValidation problems to fix:\n"
                      + "\n".join(f"- {p}" for p in problems),
                 schema=TAXONOMY_SCHEMA,
-                max_tokens=8000,
+                max_tokens=32000,
+                stream=True,
             )
             taxonomy = repair.data
             problems = validate_structure(taxonomy)
@@ -451,6 +504,7 @@ def run(fresh: bool = False, relock: bool = False) -> int:
             + (f" after {attempts - 1} repair attempt(s)" if attempts > 1 else "")
         )
         structural_attempts = attempts - 1
+        taxonomy = sanitize_taxonomy(taxonomy)
 
         # -- 3. map the full sample ----------------------------------------
         console.print("\n[bold]3. mapping the full sample[/bold]")
@@ -566,6 +620,10 @@ def run(fresh: bool = False, relock: bool = False) -> int:
             encoding="utf-8",
         )
 
+        # A failure report from an earlier attempt would otherwise sit in the
+        # repo contradicting a successful lock.
+        paths.INDUCTION_REPORT.unlink(missing_ok=True)
+
         digest = store.lock_artifact(conn, "taxonomy.yaml", paths.TAXONOMY)
         store.set_meta(conn, "induction_unmappable_rate", rate)
         store.set_meta(conn, "induction_repair_attempts", structural_attempts)
@@ -589,8 +647,10 @@ def _rationale_markdown(taxonomy: dict, rate: float, unmappable: list[str],
     lines = [
         "# Taxonomy rationale",
         "",
-        "This is the agent's own reasoning, kept verbatim as a build artifact.",
-        "It is not edited, because the point of keeping it is to show what the",
+        "This is the agent's own reasoning, kept as a build artifact. The wording",
+        "is the agent's: nothing is added, removed, or reordered. The only change",
+        "is that em and en dashes are normalized to commas, because this repo",
+        "forbids them in prose. The point of keeping this file is to show what the",
         "agent actually argued, including anything a reviewer would push back on.",
         "",
         "## The agent's reasoning",

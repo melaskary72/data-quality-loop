@@ -45,5 +45,10 @@
     "label_errors": 40,
     "multilingual": 12,
     "pii": 25
+  },
+  "shape_groups": {
+    "note": "The only duplicates this corpus asserts are the 18 planted paraphrase pairs. shape_group records which tickets were built from the same template combination. Sharing a shape does not make two tickets near duplicates, and most shape mates are not: the field exists so the eval harness can say where false positive clusters come from, not to serve as a duplicate label.",
+    "planted_paraphrase_pairs": 18,
+    "template_shape_groups": 167
   }
 }

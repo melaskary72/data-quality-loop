@@ -467,3 +467,114 @@ DETAIL_SENTENCES: list[str] = [
     "The workaround we are using is manual and does not scale.",
     "Please loop in whoever owns {surface}.",
 ]
+
+# --------------------------------------------------------------------------
+# per-leaf context sentences
+# --------------------------------------------------------------------------
+
+# With 12 leaves and 5 body variants each, roughly ten tickets shared every
+# template combination, and unrelated tickets differing only in filler values
+# read as genuine near duplicates. The duplicate detector was not wrong to
+# flag them; the corpus was not diverse enough for the flags to mean anything.
+# One leaf-specific context sentence, drawn independently of the body variant,
+# multiplies the distinct shapes per leaf by six and pushes accidental
+# collisions down. A planted paraphrase is derived from its partner's finished
+# body, so it inherits the context sentence and stays similar.
+CONTEXT_SENTENCES: dict[str, list[str]] = {
+    "invoice_dispute": [
+        "The purchase order number on our side is unchanged from last quarter.",
+        "Finance has put the payment on hold until this is resolved.",
+        "We compared it against the previous three invoices and they were correct.",
+        "The discrepancy is roughly the cost of a full seat block.",
+        "Our procurement team needs a corrected document, not a credit note.",
+        "This is the second cycle in a row where the total looks off.",
+    ],
+    "refund_request": [
+        "The original payment cleared on the corporate card.",
+        "We would prefer the refund against the original method rather than credit.",
+        "Our finance close is at the end of the month, so timing matters.",
+        "We have the transaction reference if you need it.",
+        "No one on our side has used the platform in that window.",
+        "We are happy for this to be prorated rather than refunded in full.",
+    ],
+    "plan_change": [
+        "We would like this to take effect at the start of the next cycle.",
+        "Our contract renewal date is coming up shortly.",
+        "Please confirm whether this changes our support tier.",
+        "We do not want any interruption to existing workflows.",
+        "Budget approval is already in place on our side.",
+        "Let us know if a longer commitment reduces the unit price.",
+    ],
+    "login_auth_failure": [
+        "Clearing cookies and trying an incognito window made no difference.",
+        "The same accounts work fine on the mobile app.",
+        "Our identity provider reports the assertion as successful.",
+        "It affects both new and long standing accounts equally.",
+        "We have not changed anything in our identity configuration.",
+        "One user got in briefly and was then logged straight back out.",
+    ],
+    "data_sync_error": [
+        "The connector credentials were rotated recently, though the change was applied cleanly.",
+        "Row counts on the two sides differ by a few hundred.",
+        "Re-running the job by hand produces the same result.",
+        "The upstream system reports the records as sent successfully.",
+        "Field mappings have not been edited in several months.",
+        "The failures cluster around the overnight window.",
+    ],
+    "performance_degradation": [
+        "Our network path has not changed and other services are responsive.",
+        "It is worse during the first hours of the working day.",
+        "Smaller queries still complete, only the larger ones stall.",
+        "We have tried from three different offices with the same result.",
+        "The browser network tab shows the request pending, not failing.",
+        "This started without any change on our side that we can identify.",
+    ],
+    "api_integration_error": [
+        "We can reproduce it with a minimal payload from curl.",
+        "Our client library version has not changed in weeks.",
+        "The response body contains no detail beyond the status code.",
+        "Retries with backoff do not change the outcome.",
+        "The same call succeeds against our sandbox credentials.",
+        "We log every request ID if you need one to trace.",
+    ],
+    "user_provisioning": [
+        "The people affected are all in the same department.",
+        "We follow the documented bulk import format exactly.",
+        "Some of these accounts existed previously and were removed.",
+        "Our directory sync reports no errors on its side.",
+        "We need this in place before their start date.",
+        "Manually creating one account works, which makes the bulk path suspect.",
+    ],
+    "permissions_rbac": [
+        "We audited the role definitions and they look correct in the console.",
+        "The behaviour differs between two users with identical roles.",
+        "This surfaced during our quarterly access review.",
+        "Removing and re-adding the user is the only workaround we have found.",
+        "Our compliance team needs an explanation for the audit file.",
+        "Group membership on our identity provider is correct.",
+    ],
+    "data_export_request": [
+        "We need this in a machine readable format rather than a report.",
+        "Our retention policy requires a copy held outside the platform.",
+        "An external auditor will be reviewing the output.",
+        "A one off extract is fine if a recurring job is not possible.",
+        "Please include record identifiers so we can reconcile.",
+        "We can accept delivery to a bucket we control.",
+    ],
+    "feature_request": [
+        "We are not blocked, but this costs us time every week.",
+        "Several other teams here have asked for the same thing.",
+        "We would be happy to test an early version.",
+        "Our current workaround is a spreadsheet, which is not sustainable.",
+        "If there is a roadmap item for this we would like to track it.",
+        "Even a partial version would be an improvement on what we do now.",
+    ],
+    "how_to_question": [
+        "We may well have missed this in the documentation.",
+        "We want to get the setup right before rolling it out widely.",
+        "A pointer to the right page would be enough.",
+        "Our previous platform handled this differently, so we may be assuming wrongly.",
+        "This is for a new team member who is getting set up.",
+        "No urgency, we just want to do it the supported way.",
+    ],
+}

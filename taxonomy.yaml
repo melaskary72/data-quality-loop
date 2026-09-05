@@ -3,170 +3,161 @@
 # deterministically. Locked by sha256 in the artifacts table: editing
 # this file makes every downstream stage refuse to run until it is
 # re-locked deliberately with `python -m dql induce --relock`.
-# Sample size 120. Unmappable rate 1.7%.
+# Sample size 120. Unmappable rate 3.3%.
 
 domains:
-  - name: "authentication_and_access"
-    description: "Issues related to user authentication, login, password management, permission enforcement, and access control to platform features"
+  - name: "identity_authentication"
+    description: "Tickets about users being unable to authenticate or complete login-adjacent security flows (SSO, lockout, MFA, password reset). Distinguished from the permissions domain, which covers users who can log in but whose role-based access is wrong."
     leaves:
-      - name: "login_failure"
-        definition: "Users cannot authenticate or are blocked from logging in due to redirect loops, error codes, or session issues, including account lockouts after failed attempts"
+      - name: "sso_login_loop"
+        definition: "Reports that the SSO integration redirects users in a loop, preventing login, with no changes made to the customer's identity configuration."
         inclusion_criteria:
-          - "Users receive errors during login attempt and are returned to login screen"
-          - "SSO integration or standard authentication flow is broken"
-          - "User is locked out after multiple failed attempts with no recovery available"
+          - "mentions a redirect loop tied to SSO/identity provider integration"
+          - "customer states no recent change to their identity configuration"
+          - "affects login before any role or permission is reached"
         exclusion_criteria:
-          - "User simply forgot password and reset flow exists (use password_reset_broken)"
-          - "User is asking how to invite someone; this is a configuration question"
+          - "lockout tickets that reference a specific unlock error code but no redirect loop (goes to account_lockout)"
         boundary_examples:
-          - "T-0013: Cannot log in since this morning with PERM_3310 error, multiple users affected → login_failure; platform-wide auth issue"
-          - "T-0177: Locked out after several failed attempts but unlock flow available → login_failure; account locked due to security measure requiring admin intervention"
-      - name: "password_reset_broken"
-        definition: "Password reset emails are not being sent or received, or reset links expire before users can use them"
+          - "T-0064: SSO loop appears right after a migration event; still classified sso_login_loop because the defining symptom is the redirect loop itself, not the migration trigger."
+          - "A ticket describing a redirect loop that only started after the customer changed their own IdP config would still be sso_login_loop since the symptom, not the cause, defines the leaf."
+      - name: "account_lockout"
+        definition: "Users locked out after failed login attempts where the unlock flow itself fails, typically surfacing a specific error code, and the customer asks for a session reset."
         inclusion_criteria:
-          - "Password reset emails fail to arrive for users across a domain"
-          - "Reset link expiration occurs before user can complete password reset"
-          - "Issue affects multiple users or entire organizations"
+          - "describes lockout after repeated failed attempts"
+          - "cites a specific unlock-flow error code (e.g. SYNC_4012, PERM_3310, RATE_429)"
+          - "explicitly requests a session/account reset"
         exclusion_criteria:
-          - "User has a valid password and can log in normally"
-          - "Issue is specific to a single user's email configuration"
+          - "redirect-loop symptoms without a lockout/unlock error code (goes to sso_login_loop)"
         boundary_examples:
-          - "T-0059: Password reset emails not arriving for any user on our domain → password_reset_broken; systemic delivery failure"
-          - "T-0030: User asks How do I invite someone as Workspace Admin → not password_reset_broken; this is a permissions question"
-      - name: "permission_not_enforced"
-        definition: "Users have access to data or features they should not based on their assigned role, or permissions granted in role definitions are not taking effect"
+          - "T-0013 shows SYNC_4012 on unlock and is also referenced in a role-mismatch-adjacent context (data team rollout), but stays here because the core complaint is being locked out, not a permissions bug."
+          - "T-0177 locked out of a specific workspace with PERM_3310 is included even though it names a specific workspace, since the defining feature is the lockout/unlock failure."
+      - name: "mfa_delivery_failure"
+        definition: "The multi-factor authentication code never arrives to the user despite the identity provider reporting a successful assertion."
         inclusion_criteria:
-          - "User with restricted role (Read Only, Approver) can access data outside their scope"
-          - "Role change does not apply until user is removed and re-added"
-          - "User has permissions that contradict their role definition"
+          - "explicitly states the MFA/OTP code never arrives"
+          - "notes the identity provider or assertion reports success on its side"
         exclusion_criteria:
-          - "User is asking how to assign or invite someone to a role"
-          - "Issue is a feature request for more granular permissions"
+          - "password reset emails not arriving, which is a different delivery channel and flow (goes to password_reset_failure)"
         boundary_examples:
-          - "T-0085: Someone with Read Only role is seeing data they should not → permission_not_enforced; access control failed"
-          - "T-0121: Changing user's role does not take effect until removed and re-added → permission_not_enforced; permissions not updating"
-      - name: "role_assignment_or_removal"
-        definition: "Issues with assigning, modifying, or removing user roles and permissions, including bulk operations and post-migration role problems"
+          - "T-0137 and T-0215 are near-duplicate MFA-code-never-arrives reports; both stay here despite differing wait times (22 minutes) because the failure point is MFA delivery, not password reset."
+          - "A ticket where a user never receives a reset email AND an MFA code would be split or defaulted to password_reset_failure if the subject line and first complaint is about the reset email."
+      - name: "password_reset_failure"
+        definition: "Password reset emails are not being delivered, or the reset link has expired, blocking any user on the domain from regaining access via the reset flow."
         inclusion_criteria:
-          - "User needs to be added, removed, or have their role changed in bulk"
-          - "Role assignment failed during migration or batch operation"
-          - "Deprovision or remove access for users who have left"
+          - "describes password reset emails not arriving domain-wide"
+          - "mentions the reset link expiring before use"
         exclusion_criteria:
-          - "User is asking a how-to question about the role assignment UI"
-          - "Issue is that the assigned role is not being enforced (use permission_not_enforced instead)"
+          - "MFA/OTP code delivery problems, which use a different mechanism (goes to mfa_delivery_failure)"
         boundary_examples:
-          - "T-0138: Several people have left and accounts still active, please deprovision them → role_assignment_or_removal; remove access for leavers"
-          - "T-0201: After migration everyone in finance team given wrong role, needs corrected → role_assignment_or_removal; bulk role fix needed"
-  - name: "billing_and_subscription"
-    description: "Issues related to invoicing, charges, payment processing, subscription changes, and billing discrepancies"
+          - "T-0305 where one user briefly got in and was logged back out still belongs here since the root complaint is the reset flow, not a role/permission issue after login."
+          - "T-0282 mentions the identity provider reports the assertion as successful, which could look like an MFA ticket, but the actual failure described is the reset email/link, so it stays password_reset_failure."
+  - name: "roles_permissions_provisioning"
+    description: "Tickets about who can access what once a user is already authenticated: role behavior bugs, automated account provisioning pipelines, and manual configuration requests for roles/access."
     leaves:
-      - name: "billing_dispute_or_refund"
-        definition: "Customer reports being charged incorrectly, requests refund or credit, or disputes charge accuracy including duplicate charges, unauthorized charges, or charges not matching agreements"
+      - name: "role_permission_mismatch"
+        definition: "A bug report where a user's actual access diverges from what their assigned role should allow, per the documented role description, or a role that silently reverts/fails to update."
         inclusion_criteria:
-          - "Customer reports being charged twice in same cycle or after cancellation"
-          - "Charge amount does not match contract or quote provided"
-          - "Customer requests full or partial refund due to billing error or service unavailability"
-          - "Customer disputes the accuracy of invoice line items"
+          - "names a specific role (Approver, Read Only, etc.) and a specific page/feature it should but cannot access"
+          - "describes role changes not taking effect or wrong roles applied after an event like migration"
         exclusion_criteria:
-          - "Customer is asking how seat counts are calculated (use subscription_plan_question)"
-          - "Customer is requesting a planned subscription change with new pricing"
+          - "requests to configure or restrict access going forward rather than reports of broken existing behavior (goes to access_configuration_request)"
         boundary_examples:
-          - "T-0010: Duplicate payment went through on our card, please refund → billing_dispute_or_refund; unauthorized duplicate charge needs investigation and refund"
-          - "T-0055: Cancelled before renewal but were charged anyway, requesting full refund → billing_dispute_or_refund; charge after cancellation warrants refund"
-          - "T-0262: Service was unavailable for significant window, requesting partial refund for that period → billing_dispute_or_refund; outage justifies credit"
-      - name: "subscription_change_request"
-        definition: "Customer wants to modify their subscription plan, seat count, or billing frequency (upgrade, downgrade, or switch to different plan/tier)"
+          - "T-0100 'restrict access to financial data' looks role-related but is a forward-looking configuration ask, not a report that the role is broken, so it is excluded to access_configuration_request."
+          - "T-0201 'role change does not take effect' is included even though no page-load error is cited, because it is a defect in role enforcement, not a how-to."
+      - name: "user_provisioning_failure"
+        definition: "Automated account creation or sync pipelines (SCIM push, bulk import) fail to create or update accounts even though the source system reports success."
         inclusion_criteria:
-          - "Customer requests to add or remove seats from their subscription"
-          - "Customer wants to change billing frequency (monthly to annual or vice versa)"
-          - "Customer requests to upgrade or downgrade to a different plan tier"
+          - "names an automated mechanism (SCIM, bulk upload) as the point of failure"
+          - "states accounts are missing or inconsistent despite the pipeline reporting success"
         exclusion_criteria:
-          - "Customer is asking how their current plan handles seats (use subscription_plan_question)"
-          - "Customer is disputing a charge or requesting a refund"
+          - "a manual, ad-hoc request to add a small number of named users (goes to access_configuration_request)"
         boundary_examples:
-          - "T-0126: Please add 12 more seats to our subscription → subscription_change_request; adding seats is a subscription modification"
-          - "T-0027: Need to reduce seat count by 18 before renewal → subscription_change_request; reducing seats requires subscription change"
-      - name: "subscription_plan_question"
-        definition: "Customer asks clarifying questions about how their current plan works, what is included, or how charges are calculated, without requesting a change"
+          - "T-0296 'add 3 new users before Monday' is a manual request, not a pipeline failure, so it is excluded to access_configuration_request even though it is about provisioning."
+          - "T-0217 bulk upload failing partway with TIMEOUT_5041 stays here because it is a documented-format bulk pipeline failure, not a manual ask."
+      - name: "access_configuration_request"
+        definition: "How-to or setup requests about configuring roles and access boundaries going forward, rather than a report that existing role behavior is broken."
         inclusion_criteria:
-          - "Customer asks how seat counts are calculated on their plan"
-          - "Customer asks what features are included in a plan tier"
-          - "Customer asks how usage is billed or what the difference is between plans"
+          - "phrased as 'how do I' or a request to restrict/grant access for a specific purpose"
+          - "no claim that current role behavior contradicts documentation"
         exclusion_criteria:
-          - "Customer is requesting to change to a different plan (use subscription_change_request)"
-          - "Customer is reporting a billing error or discrepancy"
+          - "reports that a role's actual access does not match its documented behavior (goes to role_permission_mismatch)"
         boundary_examples:
-          - "T-0142: Could you explain how seats are counted on the Scale plan → subscription_plan_question; asking for clarification"
-          - "T-0144: Evaluating downgrade from Enterprise, what functionality would data team lose → subscription_plan_question; comparison question, not a change request"
-  - name: "product_and_feature_issues"
-    description: "Issues related to bugs, performance problems, broken functionality, and integrations in the platform"
+          - "T-0030/T-0075 'how do I invite someone as Approver without billing access' is a pure setup question and belongs here."
+          - "T-0085 'Approver cannot see Connections page though the role description says they should' is a defect claim, not a setup question, so it is excluded to role_permission_mismatch."
+  - name: "billing_subscription"
+    description: "Tickets about money and plan structure: disputing charges, requesting refunds, and managing subscription tier or seat count, separate from product usage questions."
     leaves:
-      - name: "performance_or_rate_limit_issue"
-        definition: "Platform or feature is unusually slow, hangs, times out, or user is being rate limited on API endpoints with limits lower than documented or expected"
+      - name: "refund_request"
+        definition: "Tickets that explicitly ask for a refund or credit as the remedy for a billing problem."
         inclusion_criteria:
-          - "Query, report, or operation that was previously fast now hangs or is very slow"
-          - "User receives rate limit error on API endpoint with limit hit before documented threshold"
-          - "Timeouts or RATE_429 errors are returned"
-          - "Loading times have increased substantially or rate limiting is blocking expected operations"
+          - "contains an explicit ask for a refund, credit, or reimbursement"
+          - "ties the refund to a specific event (outage, duplicate payment, post-cancellation charge, downgrade true-up)"
         exclusion_criteria:
-          - "User is asking how to use a feature or configure settings"
-          - "User is asking about API rate limit policy without reporting hitting a limit"
+          - "tickets disputing a charge's correctness without asking for a refund as the remedy (goes to billing_discrepancy)"
         boundary_examples:
-          - "T-0222: Audit log takes over 15 minutes to load, was fast until this morning → performance_or_rate_limit_issue; loading time increased substantially"
-          - "T-0123: Rate limited on bulk endpoint after 12 requests, documented limit is much higher → performance_or_rate_limit_issue; hitting limit below documented threshold"
-          - "T-0295: Client gets RATE_429 from records endpoint after latest release → performance_or_rate_limit_issue; rate limit error from endpoint"
-      - name: "data_sync_or_integration_broken"
-        definition: "Integrations with external systems are not working, data is not syncing, or connectors are failing"
+          - "T-0029 duplicate payment explicitly says 'please refund the second one,' so it is refund_request even though 'duplicate charge' also appears in billing_discrepancy tickets."
+          - "T-0136/T-0204 'charged twice... have not authorised it' never asks for a refund outright, only flags the discrepancy, so these go to billing_discrepancy instead."
+      - name: "billing_discrepancy"
+        definition: "Tickets disputing the accuracy of an invoice, charge, or usage report against a contract, quote, or prior invoices, seeking explanation or reconciliation rather than a refund."
         inclusion_criteria:
-          - "Records or data from external system not being reflected after sync"
-          - "Integration with third-party system broken or returning errors"
-          - "Bulk upload of data is failing partially or completely"
+          - "compares an invoice/charge against a contract, quote, or prior invoice and finds a mismatch"
+          - "asks for reconciliation, explanation, or a corrected document"
         exclusion_criteria:
-          - "User is asking how to set up an integration (use documentation_or_setup_question)"
-          - "User is requesting a new connector be built (use feature_request)"
+          - "tickets that explicitly request a refund as the remedy (goes to refund_request)"
         boundary_examples:
-          - "T-0091: Records updated in Workday not reflected on our side, last successful sync before migration → data_sync_or_integration_broken; sync failing"
-          - "T-0096: Bulk user upload fails partway with PERM_3310, some users created some not → data_sync_or_integration_broken; batch operation failing mid-way"
-      - name: "documentation_or_setup_question"
-        definition: "User is asking how to set up, configure, or use a feature; documentation is conflicting or unclear"
+          - "T-0273 explicitly wants 'a corrected document, not a credit note,' confirming it belongs here rather than in refund_request."
+          - "T-0118/T-0278/T-0298 disputing usage-based charges against prior invoices stay here since no refund is demanded, only an explanation."
+      - name: "plan_tier_management"
+        definition: "Requests to change subscription tier or seat count, and informational questions about how seats or plan tiers work, independent of any disputed charge."
         inclusion_criteria:
-          - "User asks How do I or What is the correct way to set up a feature"
-          - "Documentation pages contradict each other"
-          - "User needs guidance on configuration or feature usage"
+          - "asks to upgrade/downgrade tier, change seat count, or switch billing cadence"
+          - "asks how seats or tier features are counted/structured for planning purposes"
         exclusion_criteria:
-          - "User is reporting that a feature is broken or not working"
-          - "User is asking about plan details or billing terms"
+          - "disputes about an already-issued invoice or charge (goes to billing_discrepancy or refund_request)"
         boundary_examples:
-          - "T-0133: What is the correct way to connect BigQuery, found two different docs that disagree → documentation_or_setup_question; conflicting setup guidance"
-          - "T-0258: What is correct way to connect Salesforce, found two different docs that disagree → documentation_or_setup_question; conflicting documentation"
+          - "T-0126 'reduce seat count by 18 before renewal' is a forward-looking plan change and belongs here, not billing_discrepancy, since no invoice is being disputed."
+          - "T-0166/T-0255/T-0258 'how does the plan handle seats' are informational, not disputes, and are grouped here as the planning side of subscription management."
+  - name: "platform_reliability_product_usage"
+    description: "Tickets about the technical health of the platform (performance, integrations) and non-billing product interaction: how-to questions and feature requests."
+    leaves:
+      - name: "performance_degradation"
+        definition: "Reports of slowness, hanging, or timeouts in using core product surfaces (console, queries, report rendering), where the complaint is speed/latency rather than an integration or API contract failure."
+        inclusion_criteria:
+          - "describes slow page loads, hanging queries, or timeouts tied to a region, time of day, or data volume"
+          - "no external system/API/webhook is named as the point of failure"
+        exclusion_criteria:
+          - "failures in webhook, connector, or API request handling (goes to integration_api_failure)"
+        boundary_examples:
+          - "T-0222 cites TIMEOUT_5041 but the trigger is report size/data volume in the UI, so it stays performance_degradation rather than integration_api_failure."
+          - "T-0274 also cites TIMEOUT_5041 but the failure is validation on an ingestion POST endpoint against a schema, which is an integration contract failure, so it is excluded to integration_api_failure."
+      - name: "integration_api_failure"
+        definition: "Failures in external-facing technical integrations: webhook delivery, connector data sync, API request validation, or rate limiting against documented limits."
+        inclusion_criteria:
+          - "names a webhook, connector, or API endpoint as the failing component"
+          - "describes retries failing, sync stopping, or requests being rejected/rate-limited below documented behavior"
+        exclusion_criteria:
+          - "SCIM/bulk-upload account creation failures, which are classified as identity provisioning even though they are also automated pipelines (goes to user_provisioning_failure)"
+        boundary_examples:
+          - "T-0091 'records stopped syncing' via a third-party connector is included here as a data-sync integration failure."
+          - "T-0138 SCIM provisioning failure looks similar (an automated sync not producing expected records) but is specifically about account creation, so it is excluded to user_provisioning_failure in the roles domain."
+      - name: "product_howto_question"
+        definition: "Informational or setup questions about using an existing, documented product feature, with no defect reported and no new capability requested."
+        inclusion_criteria:
+          - "phrased as 'is there a way to' or 'what is the correct way to' about a feature believed to already exist"
+          - "no error, defect, or missing-functionality claim is made"
+        exclusion_criteria:
+          - "requests for functionality the customer believes does not yet exist (goes to feature_request)"
+        boundary_examples:
+          - "T-0092/T-0133/T-0142/T-0184/T-0249/T-0253 'is there a way to schedule a report' are all treated as product_howto_question since scheduling is assumed to be an existing capability."
+          - "T-0288 'any chance of adding scheduled delivery of reports by email... roadmap item' is the same topic (report scheduling) but explicitly frames it as a capability that does not exist yet, so it is excluded to feature_request."
       - name: "feature_request"
-        definition: "Customer is requesting new functionality, enhancements, or capabilities that do not currently exist"
+        definition: "Explicit proposals for new functionality not currently supported, often self-labeled as a request or asking about roadmap status."
         inclusion_criteria:
-          - "Customer asks to add a new connector or integration type"
-          - "Customer requests new export or reporting capability"
-          - "Customer wants new product feature or enhancement"
+          - "explicitly frames the ask as a feature request or roadmap item rather than a how-to question"
+          - "proposes functionality the customer states does not currently exist"
         exclusion_criteria:
-          - "Customer is asking how to use an existing feature"
-          - "Customer is reporting that an existing feature is broken"
+          - "questions about how to use an existing documented feature (goes to product_howto_question)"
         boundary_examples:
-          - "T-0237: Request for exportable audit trail to close compliance reviews faster → feature_request; asking for new capability"
-          - "T-0288: Please consider adding native Snowflake connector → feature_request; requesting new integration"
-  - name: "account_management_and_operations"
-    description: "Issues related to workspace configuration, user provisioning, account operations, and administrative tasks"
-    leaves:
-      - name: "user_provisioning_and_access"
-        definition: "Customer needs to add, provision, or configure access for new user accounts in bulk or for specific purposes, or modify access control settings and permission boundaries"
-        inclusion_criteria:
-          - "Customer requests to add multiple new users to workspace"
-          - "Customer needs users provisioned before a deadline"
-          - "Customer needs to configure who can see specific dashboards or features"
-          - "Customer needs to restrict feature visibility for compliance or organizational reasons"
-        exclusion_criteria:
-          - "Customer is asking how to invite users (use documentation_or_setup_question)"
-          - "User has been assigned a role but it is not being enforced (use permission_not_enforced)"
-          - "Customer is removing or deprovisioning users (separate from provisioning new access)"
-        boundary_examples:
-          - "T-0217: Need 40 new users added to staging tenant before Monday → user_provisioning_and_access; bulk add request with deadline"
-          - "T-0100: Need to restrict Insights dashboard so only Read Only can view it → user_provisioning_and_access; setting up feature visibility controls"
-          - "T-0030: How do I invite someone as Workspace Admin without billing access → not user_provisioning_and_access; asking how-to, not requesting provisioning"
-rationale: "Taxonomy reduced from 5 domains and 17 leaves to 4 domains and 12 leaves by consolidating overlapping categories. Key merges: (1) Merged 'refund_request' and 'duplicate_or_erroneous_charge' into 'billing_dispute_or_refund' because both require investigation and often result in refunds or credits—the boundary examples now cover both scenarios (duplicate charges, post-cancellation charges, outage-based refunds, and line item disputes). (2) Merged 'performance_degradation' and 'rate_limit_exceeded' into 'performance_or_rate_limit_issue' because both manifest as blocking/slow operations and share identical remediation paths (infrastructure investigation, quota adjustment, etc.)—boundary examples now distinguish timeout/hang scenarios from explicit rate limit errors. (3) Merged 'access_control_configuration' and 'user_provisioning_request' into 'user_provisioning_and_access' because they represent the same operational workflow (configuring who has access and to what)—boundary examples cover adding users and restricting feature visibility. (4) Moved 'session_or_account_unlock' criteria into 'login_failure' since both are authentication blocking issues requiring the same resolution path; boundary examples now clarify that account lockouts (after failed attempts, requiring admin reset) fall under login_failure. This consolidation reduces cognitive load for annotators while maintaining coverage of all ticket types in the corpus."
+          - "T-0237 explicitly says 'A request rather than a bug,' making it an unambiguous feature_request."
+          - "T-0315 'Feature request: saved filters' is explicitly labeled and describes new shareable-filter functionality that does not exist, confirming the leaf."
+rationale: "I organized the corpus around four domains that reflect distinct operational ownership in a B2B SaaS support org: identity/authentication, roles-permissions-provisioning, billing/subscription, and platform reliability/product usage. Within identity, I split by the specific broken flow (SSO redirect, lockout, MFA, password reset) rather than lumping all 'can't log in' tickets together, because each recurs multiple times verbatim in the sample and each has a distinct remedy path for support; the key boundary I enforced is symptom-first classification (redirect loop vs failed unlock vs missing code vs missing email) rather than root-cause, since customers rarely know the root cause. In the roles domain I deliberately separated three things that could easily blur into one 'permissions' bucket: role_permission_mismatch (a defect claim that current behavior violates documented role behavior), user_provisioning_failure (automated pipelines silently not creating/syncing accounts), and access_configuration_request (forward-looking how-to/setup asks). I rejected merging role_permission_mismatch and access_configuration_request because the corpus has a clean split between 'this is broken' (T-0085, T-0121, T-0201, T-0308, T-0313) and 'how do I set this up' (T-0030, T-0075, T-0100) tickets that annotators would otherwise conflate. For billing, I rejected a single catch-all 'billing_issue' leaf because the sample cleanly separates tickets that explicitly demand a refund (refund_request) from tickets that dispute an invoice's accuracy without demanding a refund (billing_discrepancy) from tickets managing plan tier/seats prospectively (plan_tier_management); the refund vs discrepancy line is the most likely drift point, so I anchored it to the literal presence of a refund/credit ask, using T-0273's explicit rejection of a credit note as the calibrating example. I merged what could have been two leaves (plan change requests and seat-count informational questions) into plan_tier_management because both are non-disputed, forward-looking subscription administration and splitting them would have pushed the leaf count over budget without adding annotator value. In the fourth domain, I merged webhook failures, connector sync failures, and API/rate-limit errors into a single integration_api_failure leaf rather than three separate leaves, since each appears only once or twice and they share a common annotator-facing question ('is an external system/endpoint the point of failure?'); I kept performance_degradation separate because it is UI/latency-facing rather than integration-contract-facing, and used the reused TIMEOUT_5041 error code across T-0217/T-0222/T-0274 as the deliberate stress test showing that leaf assignment must follow the failing surface, not the error code. Finally, I split product_howto_question from feature_request along the explicit existing-vs-not-existing framing, using the near-identical 'scheduled reports' topic in both T-0092 (assumed existing capability) and T-0288 (explicitly requested as new/roadmap) as the calibrating boundary pair, since this is the most likely confusion in the whole corpus given how often 'scheduling reports' recurs. Total: 4 domains, 14 leaves, each domain has 3-4 leaves, satisfying the size constraints while keeping every leaf tied to a real, recurring pattern in the sampled tickets."

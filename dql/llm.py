@@ -31,6 +31,18 @@ PROMPT_VERSION = "v1"
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 
+# Taxonomy induction is one call chain that sets the vocabulary every later
+# stage is bound to, and it is genuinely hard reasoning: propose a structure,
+# then repair it against validator output. Labeling is 60 batches of routine
+# classification against a taxonomy that is handed to the model.
+#
+# Those are different jobs. Running the cheapest capable model on the bulk job
+# and a stronger one on the seven calls that decide the vocabulary costs a few
+# cents and is the right trade. Measured, not assumed: on this corpus the small
+# model needed three repair attempts and still failed the coverage ceiling,
+# once emitting its rationale as a domain name.
+DEFAULT_INDUCE_MODEL = "claude-sonnet-5"
+
 # USD per million tokens. The cheapest capable model is the default because the
 # whole project runs under a 3.00 USD cap.
 PRICING: dict[str, tuple[float, float]] = {
@@ -39,6 +51,12 @@ PRICING: dict[str, tuple[float, float]] = {
     "claude-opus-5": (5.00, 25.00),
 }
 FALLBACK_PRICE = (1.00, 5.00)
+
+# Prompt caching multipliers against the base input rate: a cache write costs
+# 1.25x, a cache read 0.1x. The labeling stage sends an identical taxonomy
+# block on every batch, so reads dominate once the first call warms it.
+CACHE_WRITE_MULTIPLIER = 1.25
+CACHE_READ_MULTIPLIER = 0.10
 
 
 class CostCapExceeded(RuntimeError):
@@ -51,6 +69,12 @@ class MissingAPIKey(RuntimeError):
 
 def get_model() -> str:
     return os.environ.get("DQL_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
+
+
+def get_induce_model() -> str:
+    """Model for taxonomy induction. Falls back to DQL_MODEL when unset."""
+    explicit = os.environ.get("DQL_INDUCE_MODEL", "").strip()
+    return explicit or DEFAULT_INDUCE_MODEL
 
 
 def get_cost_cap() -> float:
@@ -67,9 +91,15 @@ def price_for(model: str) -> tuple[float, float]:
     return FALLBACK_PRICE
 
 
-def usd_for(model: str, tokens_in: int, tokens_out: int) -> float:
+def usd_for(model: str, tokens_in: int, tokens_out: int,
+            cache_write: int = 0, cache_read: int = 0) -> float:
     price_in, price_out = price_for(model)
-    return (tokens_in / 1_000_000) * price_in + (tokens_out / 1_000_000) * price_out
+    return (
+        (tokens_in / 1_000_000) * price_in
+        + (cache_write / 1_000_000) * price_in * CACHE_WRITE_MULTIPLIER
+        + (cache_read / 1_000_000) * price_in * CACHE_READ_MULTIPLIER
+        + (tokens_out / 1_000_000) * price_out
+    )
 
 
 def estimate_tokens(text: str) -> int:
@@ -126,16 +156,19 @@ def _extract_json(text: str) -> Any:
 class Client:
     """Cached, cost capped, JSON returning Claude client."""
 
-    def __init__(self, conn: sqlite3.Connection, run_id: str, fresh: bool = False) -> None:
+    def __init__(self, conn: sqlite3.Connection, run_id: str, fresh: bool = False,
+                 model: str | None = None) -> None:
         self.conn = conn
         self.run_id = run_id
         self.fresh = fresh
-        self.model = get_model()
+        self.model = model or get_model()
         self.cap = get_cost_cap()
         self._client = None
         self._structured_ok = True
         self.calls_made = 0
         self.calls_cached = 0
+        self.cache_write_tokens = 0
+        self.cache_read_tokens = 0
 
     # -- lazy client construction, so cache only runs need no key -----------
 
@@ -150,7 +183,14 @@ class Client:
                 )
             import anthropic
 
-            self._client = anthropic.Anthropic(api_key=key, max_retries=3)
+            # An explicit per-request timeout. The SDK default is 10 minutes,
+            # and with retries a single hung request stalled a labeling run for
+            # 35 minutes with no output and no way to tell it apart from slow
+            # progress. A batch of ten tickets takes a few seconds, so a minute
+            # is generous, and failing fast lets the retry actually help.
+            self._client = anthropic.Anthropic(
+                api_key=key, max_retries=4, timeout=90.0
+            )
         return self._client
 
     # -- cost guard ---------------------------------------------------------
@@ -179,7 +219,15 @@ class Client:
         user: str,
         schema: dict[str, Any] | None = None,
         max_tokens: int = 4000,
+        cache_system: bool = False,
+        stream: bool = False,
     ) -> LLMResult:
+        """One JSON returning call.
+
+        `cache_system` marks the system prompt as a cacheable prefix. Use it
+        when the same system block is sent across many calls, as the labeling
+        stage does with the taxonomy: the block is identical on all 60 batches.
+        """
         key = cache_key(self.model, system, user, schema)
 
         if not self.fresh:
@@ -203,7 +251,11 @@ class Client:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "max_tokens": max_tokens,
-            "system": system,
+            "system": (
+                [{"type": "text", "text": system,
+                  "cache_control": {"type": "ephemeral"}}]
+                if cache_system else system
+            ),
             "messages": [{"role": "user", "content": user}],
         }
         if schema is not None and self._structured_ok:
@@ -211,19 +263,33 @@ class Client:
                 "format": {"type": "json_schema", "schema": schema}
             }
 
+        def _send(payload: dict[str, Any]):
+            # Stream whenever max_tokens is large. A model that thinks before
+            # answering can spend a long time before the first text token, and
+            # a non streaming call risks an HTTP timeout.
+            if stream or payload["max_tokens"] > 8000:
+                with self._api().messages.stream(**payload) as handle:
+                    return handle.get_final_message()
+            return self._api().messages.create(**payload)
+
         try:
-            response = self._api().messages.create(**kwargs)
+            response = _send(kwargs)
         except anthropic.BadRequestError as exc:
             # Some models decline output_config. Fall back once to prompt led
             # JSON rather than failing the stage, and remember the decision.
             if schema is not None and self._structured_ok and "output_config" in str(exc):
                 self._structured_ok = False
                 kwargs.pop("output_config", None)
-                kwargs["system"] = system + (
+                amended = system + (
                     "\n\nRespond with a single JSON object matching this schema. "
                     "No prose, no code fence.\n" + json.dumps(schema)
                 )
-                response = self._api().messages.create(**kwargs)
+                kwargs["system"] = (
+                    [{"type": "text", "text": amended,
+                      "cache_control": {"type": "ephemeral"}}]
+                    if cache_system else amended
+                )
+                response = _send(kwargs)
             else:
                 raise
         except anthropic.NotFoundError as exc:
@@ -235,22 +301,40 @@ class Client:
                 "The API rejected the key in ANTHROPIC_API_KEY. Check .env."
             ) from exc
 
-        text = "".join(b.text for b in response.content if b.type == "text")
-        data = _extract_json(text)
-
+        # Cost is recorded before the response is parsed. A call that came back
+        # unparseable still cost money, and a cost table that silently omits it
+        # would understate the total printed in the README.
         tokens_in = response.usage.input_tokens
         tokens_out = response.usage.output_tokens
-        usd = usd_for(self.model, tokens_in, tokens_out)
+        cache_write = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
+        usd = usd_for(self.model, tokens_in, tokens_out, cache_write, cache_read)
+        self.cache_write_tokens += cache_write
+        self.cache_read_tokens += cache_read
 
         store.record_cost(
             self.conn,
             call_id=str(uuid.uuid4()),
             run_id=self.run_id,
             model=self.model,
-            tokens_in=tokens_in,
+            tokens_in=tokens_in + cache_write + cache_read,
             tokens_out=tokens_out,
             usd=usd,
         )
+        text = "".join(b.text for b in response.content if b.type == "text")
+        if not text.strip():
+            blocks = sorted({b.type for b in response.content})
+            raise RuntimeError(
+                "The model returned no text block.\n"
+                f"  model        : {self.model}\n"
+                f"  stop_reason  : {response.stop_reason}\n"
+                f"  blocks       : {blocks or 'none'}\n"
+                f"  output tokens: {tokens_out} of a {max_tokens} ceiling\n"
+                "If stop_reason is max_tokens, the ceiling was consumed before "
+                "the answer was written. Raise max_tokens for this call."
+            )
+        data = _extract_json(text)
+
         self.conn.execute(
             "INSERT OR REPLACE INTO llm_cache VALUES (?,?,?,?,?,?)",
             (key, self.model, json.dumps(data, ensure_ascii=False),

@@ -221,6 +221,15 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
     subject: dict[int, str] = {}
     body: dict[int, str] = {}
     pii_spans: dict[int, list[dict]] = {}
+    # Shape = the template combination a ticket was built from. Sharing a
+    # shape does NOT make two tickets near duplicates: 461 of 600 tickets share
+    # a shape with someone, while the detector flags 47 clusters, because
+    # filler values and trailing detail sentences usually pull them apart.
+    # It is recorded as a diagnostic, not as truth. The only duplicates this
+    # corpus asserts are the 18 planted paraphrase pairs. Treating shape mates
+    # as ground-truth duplicates would inflate the denominator exactly as badly
+    # as ignoring them deflates it.
+    shape: dict[int, str] = {}
 
     ambiguous_slot = {idx: i for i, idx in enumerate(ambiguous_idx)}
 
@@ -229,7 +238,12 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
         if idx in ambiguous_set:
             blend = T.AMBIGUOUS_BLENDS[ambiguous_slot[idx] % len(T.AMBIGUOUS_BLENDS)]
             subj = _fill(blend["subject"], ctx)
-            text = _wrap(_fill(blend["body"], ctx), ctx, rng)
+            core = _fill(blend["body"], ctx)
+            context_pool = T.CONTEXT_SENTENCES[blend["primary"]]
+            context_idx = rng.randrange(len(context_pool))
+            core += " " + _fill(context_pool[context_idx], ctx)
+            text = _wrap(core, ctx, rng)
+            shape[idx] = f"blend:{ambiguous_slot[idx] % len(T.AMBIGUOUS_BLENDS)}:{context_idx}"
         else:
             leaf = true_label[idx]
             # Paired by index: templates are written so subjects[i] summarizes
@@ -237,7 +251,14 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
             # subject and body described different incidents.
             variant = rng.randrange(len(T.TEMPLATES[leaf]["bodies"]))
             subj = _fill(T.TEMPLATES[leaf]["subjects"][variant], ctx)
-            text = _wrap(_fill(T.TEMPLATES[leaf]["bodies"][variant], ctx), ctx, rng)
+            core = _fill(T.TEMPLATES[leaf]["bodies"][variant], ctx)
+            # One leaf-specific context sentence, chosen independently of the
+            # body variant, so two tickets sharing a variant still diverge.
+            context_pool = T.CONTEXT_SENTENCES[leaf]
+            context_idx = rng.randrange(len(context_pool))
+            core += " " + _fill(context_pool[context_idx], ctx)
+            text = _wrap(core, ctx, rng)
+            shape[idx] = f"{leaf}:{variant}:{context_idx}"
         subject[idx] = subj
         body[idx] = text
 
@@ -245,6 +266,7 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
     for a, b in duplicate_pairs:
         subject[b] = subject[a]
         body[b] = _paraphrase(body[a], rng)
+        shape[b] = shape[a]
 
     for idx in sorted(multilingual_set):
         body[idx] = _add_arabic(body[idx], rng)
@@ -266,6 +288,17 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
             vendor_label[idx] = truth
 
     # -- assemble -----------------------------------------------------------
+    # Group ids for shapes carrying more than one ticket, used by the eval
+    # harness only to explain where false positives come from.
+    shape_members: dict[str, list[int]] = {}
+    for idx in indices:
+        shape_members.setdefault(shape[idx], []).append(idx)
+    shape_groups: dict[str, str] = {}
+    for n, (key, members) in enumerate(
+        sorted((k, v) for k, v in shape_members.items() if len(v) > 1), start=1
+    ):
+        shape_groups[key] = f"SHAPE-{n:03d}"
+
     tickets: list[dict] = []
     ground_truth: list[dict] = []
 
@@ -287,6 +320,7 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
         })
 
         pair_id, is_canonical = dup_role.get(idx, (None, None))
+        shape_group = shape_groups.get(shape[idx])
         ground_truth.append({
             "ticket_id": ticket_id,
             "true_label": true_label[idx],
@@ -300,6 +334,8 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
             "duplicate_pair_id": pair_id,
             "is_canonical": is_canonical,
             "is_multilingual": idx in multilingual_set,
+            "shape_key": shape[idx],
+            "shape_group": shape_group,
         })
 
     observed: dict[str, int] = {}
@@ -319,6 +355,18 @@ def build_corpus(seed: int, count: int) -> tuple[list[dict], list[dict], dict]:
             "multilingual": N_MULTILINGUAL,
         },
         "phenomena_are_disjoint": True,
+        "shape_groups": {
+            "planted_paraphrase_pairs": N_DUPLICATE_PAIRS,
+            "template_shape_groups": len(shape_groups),
+            "note": (
+                "The only duplicates this corpus asserts are the 18 planted "
+                "paraphrase pairs. shape_group records which tickets were built "
+                "from the same template combination. Sharing a shape does not "
+                "make two tickets near duplicates, and most shape mates are not: "
+                "the field exists so the eval harness can say where false "
+                "positive clusters come from, not to serve as a duplicate label."
+            ),
+        },
         "observed_class_distribution": dict(sorted(observed.items(), key=lambda kv: -kv[1])),
     }
     return tickets, ground_truth, manifest

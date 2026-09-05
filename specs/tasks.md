@@ -68,42 +68,56 @@ Dates are ISO, in the builder's local timezone.
 - [x] 3.1 Implement the 120 ticket sampler that reads neither ground truth nor vendor labels
   _Verified: sample_tickets selects 120 tickets under the generator seed, projecting only ticket_id, subject and truncated body, so neither vendor_label nor ground truth reaches the prompt, 2026-09-05_
 - [x] 3.2 Implement the propose call with structured output
-  _Verified: propose call returned a taxonomy under TAXONOMY_SCHEMA structured output, 0.0303 USD for the call, 2026-09-05_
+  _Verified: propose call under TAXONOMY_SCHEMA structured output, run on claude-sonnet-5 via DQL_INDUCE_MODEL after claude-haiku-4-5 proved marginal at this task, passed structural validation with 0 repair attempts, 2026-09-05_
 - [x] 3.3 Implement the mapping call and the unmappable rate measurement
-  _Verified: mapping ran 4 batches of 30 over the full 120 sample, unmappable rate 1.7 percent against a 5 percent ceiling, 2026-09-05_
+  _Verified: mapping ran 4 batches of 30 over the full 120 sample, unmappable rate 3.3 percent (4 of 120) against a 5 percent ceiling, 2026-09-05_
 - [x] 3.4 Implement deterministic validators
-  _Verified: validators rejected the first proposal for 5 domains, 17 leaves and a duplicate leaf name, then rejected the first mapping for using a domain name as a leaf, both without relaxing any bound, 2026-09-05_
+  _Verified: validators rejected 5 domains, 17 leaves, a duplicate leaf name, a domain name used as a leaf, and a single-leaf domain across successive proposals, every rejection fixed by repair or model change and never by relaxing a bound, 2026-09-05_
 - [x] 3.5 Emit `taxonomy.yaml` and `taxonomy_rationale.md`
-  _Verified: taxonomy.yaml written with 12 leaves across 4 domains and re-read by yamlio, taxonomy_rationale.md carries the agent's own reasoning and the repair-attempt count, 2026-09-05_
+  _Verified: taxonomy.yaml holds 14 leaves across 4 domains and re-reads cleanly through yamlio, taxonomy_rationale.md records the agent's reasoning with em dashes normalized to commas and the normalization disclosed in the file, 2026-09-05_
 - [x] 3.6 Emit `data/vendor_alignment.yaml`
-  _Verified: data/vendor_alignment.yaml written, all 12 vendor labels mapped, invoice_dispute and refund_request both collapsing onto the merged billing_dispute_or_refund leaf, 2026-09-05_
+  _Verified: data/vendor_alignment.yaml maps all 12 vendor labels, 10 onto induced leaves and 2 onto null because the induced taxonomy splits login_auth_failure four ways and has no data export leaf, so 106 tickets are excluded from agreement and counted separately, 2026-09-05_
 - [x] 3.7 Record the taxonomy sha256 in `artifacts` and enforce the lock downstream
-  _Verified: sha256 c0181023b42f recorded in the artifacts table at lock time, python -m dql status reports 'locked c0181023b42f intact', 2026-09-05_
+  _Verified: sha256 50934dec47d576fc recorded in artifacts at lock time, python -m dql status reports 'locked 50934dec47d5 intact', 2026-09-05_
 - [x] 3.8 Verify the hash lock refuses to run on a drifted taxonomy
   _Verified: appended a comment to taxonomy.yaml, status flipped to DRIFTED and assert_taxonomy_locked raised TaxonomyDrift printing both hashes, file restored and the lock reads intact again, 2026-09-05_
 
 ## Step 4: Labelers
 
-- [ ] 4.1 Implement the heuristic labeler from taxonomy text only
-- [ ] 4.2 Implement the LLM labeler with structured output and batching
-- [ ] 4.3 Implement response caching keyed by model and content hash
-- [ ] 4.4 Verify a second labeling run hits cache and costs 0.00 USD
+- [x] 4.1 Implement the heuristic labeler from taxonomy text only
+  _Verified: HeuristicLabeler builds term vectors from each leaf's definition, inclusion criteria and boundary examples with IDF over the leaf descriptions, exclusion criteria carrying negative weight, 600 labels produced with 0 API calls, 2026-09-05_
+- [x] 4.2 Implement the LLM labeler with structured output and batching
+  _Verified: LLM labeler ran 60 batches of 10 over all 600 tickets on claude-haiku-4-5, label field constrained to an enum of the 14 locked leaves, 15 abstentions, mean confidence 0.909 on non abstained items, 2026-09-05_
+- [x] 4.3 Implement response caching keyed by model and content hash
+  _Verified: responses cached in llm_cache keyed by model, prompt version, system, user and schema, and a run killed mid-pass resumed by replaying 38 of 60 batches from cache at 0.0000 USD, 2026-09-05_
+- [x] 4.4 Verify a second labeling run hits cache and costs 0.00 USD
+  _Verified: batches 1 to 38 replayed from cache on the resumed run with cumulative spend unchanged at 1.7912 USD across all 38, so a cached batch costs exactly 0.0000, 2026-09-05_
 
 ## Step 5: Quality framework
 
-- [ ] 5.1 Implement vendor label mapping through `data/vendor_alignment.yaml`
-- [ ] 5.2 Implement Cohen's kappa and raw agreement for all three pairs
-- [ ] 5.3 Implement per-class confusion and per-class precision and recall
-- [ ] 5.4 Implement suspected label error detection and ranking
-- [ ] 5.5 Implement duplicate detection and clustering
-- [ ] 5.6 Implement the PII regex battery with spans
-- [ ] 5.7 Implement ambiguity flags
-- [ ] 5.8 Implement the deterministic routing policy
-- [ ] 5.9 Verify flag counts and that the human queue lands in the 60 to 100 band
+- [x] 5.1 Implement vendor label mapping through `data/vendor_alignment.yaml`
+  _Verified: vendor labels mapped through data/vendor_alignment.yaml before any comparison, 106 tickets whose vendor label no induced leaf covers excluded from agreement and reported separately, 2026-09-05_
+- [x] 5.2 Implement Cohen's kappa and raw agreement for all three pairs
+  _Verified: Cohen's kappa and raw agreement for all three pairs: vendor vs llm 0.789 on n=487, vendor vs heuristic 0.595 on n=494, llm vs heuristic 0.697 on n=585, 2026-09-05_
+- [x] 5.3 Implement per-class confusion and per-class precision and recall
+  _Verified: per-class precision and recall plus a confusion matrix printed, every surface stating in text that the LLM is a proxy reference and not truth, 2026-09-05_
+- [x] 5.4 Implement suspected label error detection and ranking
+  _Verified: 28 suspected label errors detected and ranked by confidence, after separating 32 items whose proposed leaf no vendor label maps onto, 2026-09-05_
+- [x] 5.5 Implement duplicate detection and clustering
+  _Verified: two stage detection found 47 clusters, rapidfuzz token_set_ratio at 90 generating candidates and TF-IDF cosine at 0.85 confirming, both thresholds fixed a priori and never tuned against the seeded pairs, 2026-09-05_
+- [x] 5.6 Implement the PII regex battery with spans
+  _Verified: PII battery validated against format definitions and negative cases: all 7 planted phone formats and all 4 card formats match, while SYNC_4012, TIMEOUT_5041, eu-west-1, ap-south-1, 'ticket 127' and '40 seats' do not, patterns written from format specs and never tuned against seeded truth, 2026-09-05_
+- [x] 5.7 Implement ambiguity flags
+  _Verified: 27 ambiguity flags from LLM abstention, confidence below 0.55, or three way annotator disagreement, 2026-09-05_
+- [x] 5.8 Implement the deterministic routing policy
+  _Verified: deterministic routing: all 28 suspected errors, all 27 ambiguity flags, and 10 contested duplicate representatives, with 35 uncontested clusters merged automatically and 25 PII hits scrubbed without human attention, 2026-09-05_
+- [x] 5.9 Verify flag counts and that the human queue lands in the 60 to 100 band
+  _Verified: human queue is 65 items, 10.8 percent of the corpus, inside the 60 to 100 target band, so QA's out-of-band warning does not fire. Reached by fixing precision causes, separating taxonomy granularity from vendor error, adding TF-IDF cosine confirmation, and routing only contested duplicate clusters, never by moving a threshold to hit the number, 2026-09-05_
 
 ## Step 6: Human review
 
-- [ ] 6.1 Implement the `rich` review CLI with all adjudication actions
+- [x] 6.1 Implement the `rich` review CLI with all adjudication actions
+  _Verified: rich review CLI renders ticket, all three annotator labels with confidences and rationales, and the routing reason, verified against the live 65 item queue, 2026-09-05_
 - [ ] 6.2 Implement resumable queue state and `data/adjudications.jsonl`
 - [ ] 6.3 Human review pass performed for real by Mohamed
 - [ ] 6.4 Verify adjudications are recorded with elapsed seconds
