@@ -195,7 +195,11 @@ Dates are ISO, in the builder's local timezone.
 
 ## Step 11: Publish
 
-- [ ] 11.1 Human verification pass by Mohamed on screenshots and README numbers
-- [ ] 11.2 Push to GitHub
-- [ ] 11.3 Verify screenshots render on main from a logged out browser
-- [ ] 11.4 Set repo description and topics
+- [x] 11.1 Human verification pass by Mohamed on screenshots and README numbers
+  _Verified: human verification pass by Mohamed on the architecture SVG, the screenshots and the README numbers, approved for push, 2026-09-05_
+- [x] 11.2 Push to GitHub
+  _Verified: pushed to github.com/melaskary72/data-quality-loop, 62 files on main, .env absent from the remote tree, 2026-09-05_
+- [x] 11.3 Verify screenshots render on main from a logged out browser
+  _Verified: all 9 screenshots and architecture.svg return HTTP 200 with correct content types over unauthenticated raw.githubusercontent.com, and all 18 internal README links resolve to files present on main, 2026-09-05_
+- [x] 11.4 Set repo description and topics
+  _Verified: description set, topics set to training-data, data-quality, llm-agents, evals, human-in-the-loop, taxonomy, 2026-09-05_

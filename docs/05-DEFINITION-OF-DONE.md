@@ -11,10 +11,10 @@
 - [x] `check_contract.py` and `verify_seeds.py` both green
 - [x] Total spend printed in the README and at or under 3.00 USD
   _2.0343 USD._
-- [ ] Screenshots verified rendering on GitHub main from a logged-out browser
-  _Pending the push. Screenshots are generated from real captured terminal output and verified locally._
-- [ ] Repo description and topics set
-  _Pending the push._
+- [x] Screenshots verified rendering on GitHub main from a logged-out browser
+  _All 9 screenshots and architecture.svg return HTTP 200 with correct content types over unauthenticated raw.githubusercontent.com, and all 18 internal README links resolve to files present on main._
+- [x] Repo description and topics set
+  _training-data, data-quality, llm-agents, evals, human-in-the-loop, taxonomy._
 
 ## The standard applied here
 
