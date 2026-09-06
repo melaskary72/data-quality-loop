@@ -98,8 +98,10 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 def cmd_induce(args: argparse.Namespace) -> int:
-    from .induce import run
+    from .induce import realign, run
 
+    if getattr(args, "realign", False):
+        return realign(fresh=args.fresh)
     return run(fresh=args.fresh, relock=args.relock)
 
 
@@ -194,6 +196,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("induce", help="induce and lock the taxonomy")
     p.add_argument("--fresh", action="store_true", help="bypass the LLM cache")
     p.add_argument("--relock", action="store_true", help="deliberately re-lock the taxonomy")
+    p.add_argument("--realign", action="store_true",
+                   help="regenerate only the vendor alignment, leaving the locked "
+                        "taxonomy and all existing labels untouched")
     p.set_defaults(func=cmd_induce)
 
     p = sub.add_parser("label", help="label the corpus")

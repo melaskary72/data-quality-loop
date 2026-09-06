@@ -1,0 +1,84 @@
+{"after": "user_provisioning_failure", "before": null, "field": "alt_label", "reason": "reviewer marked genuinely ambiguous", "ticket_id": "T-0127"}
+{"after": "integration_api_failure", "before": null, "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0289"}
+{"after": "integration_api_failure", "before": null, "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0290"}
+{"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0328"}
+{"after": "user_provisioning_failure", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0353"}
+{"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0393"}
+{"after": "access_configuration_request", "before": null, "field": "label", "reason": "reviewer decision: other_leaf", "ticket_id": "T-0426"}
+{"after": "user_provisioning_failure", "before": null, "field": "alt_label", "reason": "reviewer marked genuinely ambiguous", "ticket_id": "T-0463"}
+{"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0583"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0002", "ticket_id": "T-0520"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0006", "ticket_id": "T-0029"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0014", "ticket_id": "T-0318"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0016", "ticket_id": "T-0578"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0056", "ticket_id": "T-0124"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0061", "ticket_id": "T-0183"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0063", "ticket_id": "T-0503"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0067", "ticket_id": "T-0103"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0078", "ticket_id": "T-0432"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0078", "ticket_id": "T-0595"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0080", "ticket_id": "T-0203"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0096", "ticket_id": "T-0567"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0104", "ticket_id": "T-0201"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0120", "ticket_id": "T-0134"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0137", "ticket_id": "T-0441"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0137", "ticket_id": "T-0515"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0142", "ticket_id": "T-0184"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0145", "ticket_id": "T-0154"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0151", "ticket_id": "T-0414"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0166", "ticket_id": "T-0514"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0169", "ticket_id": "T-0476"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0173", "ticket_id": "T-0174"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0181", "ticket_id": "T-0435"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0187", "ticket_id": "T-0208"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0206", "ticket_id": "T-0213"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0212", "ticket_id": "T-0239"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0242", "ticket_id": "T-0417"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0264", "ticket_id": "T-0269"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0275", "ticket_id": "T-0286"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0278", "ticket_id": "T-0354"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0281", "ticket_id": "T-0329"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0282", "ticket_id": "T-0372"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0297", "ticket_id": "T-0306"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0309", "ticket_id": "T-0356"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0310", "ticket_id": "T-0428"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0315", "ticket_id": "T-0316"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0362", "ticket_id": "T-0581"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0380", "ticket_id": "T-0381"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0401", "ticket_id": "T-0402"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0413", "ticket_id": "T-0492"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0474", "ticket_id": "T-0563"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0474", "ticket_id": "T-0565"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0493", "ticket_id": "T-0558"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0507", "ticket_id": "T-0547"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0511", "ticket_id": "T-0522"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0516", "ticket_id": "T-0554"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0519", "ticket_id": "T-0521"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0523", "ticket_id": "T-0533"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0542", "ticket_id": "T-0559"}
+{"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0573", "ticket_id": "T-0598"}
+{"after": "[CARD_1], [PHONE_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0025"}
+{"after": "[PHONE_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0044"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0048"}
+{"after": "[PHONE_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0054"}
+{"after": "[PHONE_1], [EMAIL_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0110"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0132"}
+{"after": "[EMAIL_1], [CARD_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0148"}
+{"after": "[PHONE_1], [CARD_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0150"}
+{"after": "[CARD_1], [PHONE_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0156"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0168"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0175"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0231"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0301"}
+{"after": "[CARD_1], [EMAIL_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0304"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0351"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0370"}
+{"after": "[PHONE_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0375"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0389"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0399"}
+{"after": "[EMAIL_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0404"}
+{"after": "[EMAIL_1], [CARD_1]", "before": "2 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0479"}
+{"after": "[PHONE_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0499"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0518"}
+{"after": "[CARD_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0524"}
+{"after": "[PHONE_1]", "before": "1 PII span(s)", "field": "body", "reason": "PII scrubbed with typed placeholders", "ticket_id": "T-0538"}

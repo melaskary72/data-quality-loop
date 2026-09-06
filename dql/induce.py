@@ -113,7 +113,14 @@ def mapping_schema(valid_leaves: list[str]) -> dict:
     }
 
 def alignment_schema(valid_leaves: list[str]) -> dict:
-    """Same guarantee for the vendor alignment: an induced leaf or "none"."""
+    """A vendor label maps to the SET of induced leaves that cover it.
+
+    One-to-one was wrong. Where the induced taxonomy splits a coarse vendor
+    class into several leaves, no single leaf covers it, and forcing a choice
+    produced `null`. That excluded 106 of 600 tickets from every agreement
+    statistic and made three seeded label errors structurally invisible, since
+    a disagreement cannot be measured against a label that maps to nothing.
+    """
     return {
         "type": "object",
         "properties": {
@@ -123,10 +130,13 @@ def alignment_schema(valid_leaves: list[str]) -> dict:
                     "type": "object",
                     "properties": {
                         "vendor_label": {"type": "string"},
-                        "induced_leaf": {"type": "string", "enum": valid_leaves + ["none"]},
+                        "induced_leaves": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": valid_leaves},
+                        },
                         "reasoning": {"type": "string"},
                     },
-                    "required": ["vendor_label", "induced_leaf", "reasoning"],
+                    "required": ["vendor_label", "induced_leaves", "reasoning"],
                     "additionalProperties": False,
                 },
             },
@@ -204,8 +214,17 @@ The first is the vocabulary an outside labeling vendor used. The second is the \
 taxonomy we induced from the raw tickets. They were designed independently and \
 they do not match one to one.
 
-For each vendor label, name the single induced leaf that best covers it. If no \
-induced leaf covers it, return the literal string "none".
+For each vendor label, list EVERY induced leaf that it legitimately covers.
+
+- If exactly one induced leaf means the same thing, list that one.
+- If the induced taxonomy split the vendor's class into several finer leaves, \
+list all of them. A ticket the vendor called by that label could correctly \
+receive any one of them, so leaving any out would make a correct finer label \
+look like a disagreement.
+- If no induced leaf covers it at all, return an empty list.
+
+Do not list a leaf merely because it is adjacent or related. The test is \
+whether a ticket the vendor gave this label could correctly carry that leaf.
 
 Judge by meaning, not by how similar the two strings look. Two labels with \
 nearly identical names can mean different things, and two labels with \
@@ -392,6 +411,74 @@ def validate_coverage(assignments: dict[str, str], sample: list[dict],
 # stage
 # --------------------------------------------------------------------------
 
+def realign(fresh: bool = False) -> int:
+    """Regenerate data/vendor_alignment.yaml against the LOCKED taxonomy.
+
+    Deliberately does not re-induce. The taxonomy hash stays exactly where it
+    is, so every existing label remains valid and nothing needs relabeling.
+    """
+    paths.ensure_dirs()
+    with store.session() as conn:
+        store.assert_taxonomy_locked(conn)
+        taxonomy = yamlio.load(paths.TAXONOMY)
+        valid = leaf_names(taxonomy)
+
+        model = llm.get_induce_model()
+        run_id = store.start_run(conn, "induce", model=model)
+        client = llm.Client(conn, run_id, fresh=fresh, model=model)
+
+        vendor_labels = sorted({
+            r["vendor_label"]
+            for r in conn.execute("SELECT DISTINCT vendor_label FROM tickets")
+        })
+        console.print(
+            f"Realigning {len(vendor_labels)} vendor labels against the locked "
+            f"taxonomy ({len(valid)} leaves). The taxonomy itself is untouched."
+        )
+
+        align = client.complete_json(
+            system=ALIGN_SYSTEM.format(taxonomy=render_taxonomy(taxonomy)),
+            user="Vendor labels to align:\n"
+                 + "\n".join(f"- {v}" for v in vendor_labels),
+            schema=alignment_schema(valid),
+            max_tokens=8000,
+        )
+        alignment: dict[str, list[str]] = {}
+        reasoning: dict[str, str] = {}
+        for item in align.data.get("mappings", []):
+            leaves = [l.strip() for l in item.get("induced_leaves", []) if l.strip()]
+            alignment[item["vendor_label"]] = [l for l in leaves if l in valid]
+            reasoning[item["vendor_label"]] = sanitize_prose(item.get("reasoning", ""))
+        for vendor in vendor_labels:
+            alignment.setdefault(vendor, [])
+
+        yamlio.dump(
+            {"alignment": alignment, "reasoning": reasoning},
+            paths.VENDOR_ALIGNMENT,
+            header=(
+                "Vendor vocabulary to induced leaves.\n"
+                "Derived from public vendor label strings plus the induced taxonomy.\n"
+                "Never derived from ground truth, so QA may use it without leaking.\n"
+                "A vendor label maps to EVERY induced leaf that legitimately covers\n"
+                "it, because the induced taxonomy splits some coarse vendor classes.\n"
+                "An empty list means no induced leaf covers it, and those tickets are\n"
+                "excluded from agreement statistics and counted separately."
+            ),
+        )
+        store.finish_run(conn, run_id, note=f"realigned {len(vendor_labels)} vendor labels")
+
+        table = Table(title="Vendor vocabulary alignment", title_justify="left",
+                      header_style="bold")
+        table.add_column("Vendor label")
+        table.add_column("Induced leaves it covers")
+        for vendor, leaves in sorted(alignment.items()):
+            table.add_row(vendor, "\n".join(leaves) if leaves
+                          else "[dim]none, no induced leaf covers it[/dim]")
+        console.print(table)
+        console.print(f"[dim]spend {client.spend():.4f} USD[/dim]")
+    return 0
+
+
 def run(fresh: bool = False, relock: bool = False) -> int:
     paths.ensure_dirs()
 
@@ -567,26 +654,14 @@ def run(fresh: bool = False, relock: bool = False) -> int:
             schema=alignment_schema(valid_leaves),
             max_tokens=4000,
         )
-        alignment: dict[str, str | None] = {}
+        alignment: dict[str, list[str]] = {}
         reasoning: dict[str, str] = {}
         for item in align.data.get("mappings", []):
-            leaf = item["induced_leaf"].strip()
-            alignment[item["vendor_label"]] = None if leaf in ("none", "") else leaf
+            leaves = [l.strip() for l in item.get("induced_leaves", []) if l.strip()]
+            alignment[item["vendor_label"]] = [l for l in leaves if l in valid]
             reasoning[item["vendor_label"]] = item.get("reasoning", "")
         for vendor in vendor_labels:
-            alignment.setdefault(vendor, None)
-
-        stray = sorted({
-            leaf for leaf in alignment.values() if leaf is not None and leaf not in valid
-        })
-        if stray:
-            console.print(
-                f"   [yellow]warn[/yellow] alignment named leaves outside the "
-                f"taxonomy, dropped to null: {stray}"
-            )
-            for vendor, leaf in list(alignment.items()):
-                if leaf in stray:
-                    alignment[vendor] = None
+            alignment.setdefault(vendor, [])
 
         # -- 6. write and lock ---------------------------------------------
         console.print("\n[bold]6. writing artifacts and locking[/bold]")
@@ -609,9 +684,10 @@ def run(fresh: bool = False, relock: bool = False) -> int:
                 "Vendor vocabulary to induced leaf.\n"
                 "Derived from public vendor label strings plus the induced taxonomy.\n"
                 "Never derived from ground truth, so QA may use it without leaking.\n"
-                "A null mapping means no induced leaf covers that vendor label, and\n"
-                "those tickets are excluded from agreement statistics and counted\n"
-                "separately."
+                "A vendor label maps to EVERY induced leaf that legitimately covers\n"
+                "it, because the induced taxonomy splits some coarse vendor classes.\n"
+                "An empty list means no induced leaf covers it, and those tickets are\n"
+                "excluded from agreement statistics and counted separately."
             ),
         )
         paths.TAXONOMY_RATIONALE.write_text(
@@ -721,9 +797,12 @@ def _print_summary(taxonomy: dict, alignment: dict, rate: float,
     align_table = Table(title="Vendor vocabulary alignment",
                         title_justify="left", header_style="bold")
     align_table.add_column("Vendor label")
-    align_table.add_column("Induced leaf")
-    for vendor, leaf in sorted(alignment.items()):
-        align_table.add_row(vendor, leaf or "[dim]none[/dim]")
+    align_table.add_column("Induced leaves it covers")
+    for vendor, leaves in sorted(alignment.items()):
+        align_table.add_row(
+            vendor,
+            "\n".join(leaves) if leaves else "[dim]none, no induced leaf covers it[/dim]",
+        )
     console.print(align_table)
 
     console.print(Panel(

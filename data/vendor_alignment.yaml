@@ -1,33 +1,52 @@
-# Vendor vocabulary to induced leaf.
+# Vendor vocabulary to induced leaves.
 # Derived from public vendor label strings plus the induced taxonomy.
 # Never derived from ground truth, so QA may use it without leaking.
-# A null mapping means no induced leaf covers that vendor label, and
-# those tickets are excluded from agreement statistics and counted
-# separately.
+# A vendor label maps to EVERY induced leaf that legitimately covers
+# it, because the induced taxonomy splits some coarse vendor classes.
+# An empty list means no induced leaf covers it, and those tickets are
+# excluded from agreement statistics and counted separately.
 
 alignment:
-  api_integration_error: "integration_api_failure"
-  data_export_request: null
-  data_sync_error: "integration_api_failure"
-  feature_request: "feature_request"
-  how_to_question: "product_howto_question"
-  invoice_dispute: "billing_discrepancy"
-  login_auth_failure: null
-  performance_degradation: "performance_degradation"
-  permissions_rbac: "role_permission_mismatch"
-  plan_change: "plan_tier_management"
-  refund_request: "refund_request"
-  user_provisioning: "user_provisioning_failure"
+  api_integration_error:
+    - "integration_api_failure"
+  data_export_request:
+    - "product_howto_question"
+    - "feature_request"
+  data_sync_error:
+    - "integration_api_failure"
+  feature_request:
+    - "feature_request"
+  how_to_question:
+    - "product_howto_question"
+  invoice_dispute:
+    - "billing_discrepancy"
+  login_auth_failure:
+    - "sso_login_loop"
+    - "account_lockout"
+    - "mfa_delivery_failure"
+    - "password_reset_failure"
+  performance_degradation:
+    - "performance_degradation"
+  permissions_rbac:
+    - "role_permission_mismatch"
+    - "access_configuration_request"
+  plan_change:
+    - "plan_tier_management"
+  refund_request:
+    - "refund_request"
+  user_provisioning:
+    - "user_provisioning_failure"
+    - "access_configuration_request"
 reasoning:
-  api_integration_error: "Directly matches failures in API/webhook/connector integrations as defined in integration_api_failure."
-  data_export_request: "No induced leaf specifically covers data export requests; it doesn't fit performance, integration, or how-to/feature categories cleanly."
-  data_sync_error: "Sync errors involving connectors or external systems align with the integration_api_failure leaf's description of data-sync integration failures."
-  feature_request: "Direct semantic match: explicit proposals for new functionality not yet supported."
-  how_to_question: "Matches informational/setup questions about existing documented features with no defect reported."
-  invoice_dispute: "Disputing invoice accuracy or charges without requesting a refund matches billing_discrepancy exactly."
-  login_auth_failure: "This vendor label spans multiple distinct induced leaves (sso_login_loop, account_lockout, mfa_delivery_failure, password_reset_failure) with no single leaf covering all login/auth failure types generically."
-  performance_degradation: "Direct match for reports of slowness, hanging, or timeouts in core product surfaces."
-  permissions_rbac: "Role-based access control issues where actual access diverges from assigned role match role_permission_mismatch."
-  plan_change: "Requests to change subscription tier or seat count directly match plan_tier_management."
-  refund_request: "Direct match: explicit ask for refund or credit as remedy for a billing problem."
-  user_provisioning: "Automated account creation/sync pipeline failures (e.g., SCIM, bulk import) match user_provisioning_failure."
+  api_integration_error: "Refers to failures in API/webhook/connector integrations, matching the integration_api_failure leaf which covers external-facing technical integration failures like webhook delivery, connector sync, and API validation errors."
+  data_export_request: "A request to export data could be a question about how to use an existing export feature (product_howto_question) or a request for export capability that doesn't yet exist (feature_request), depending on whether the functionality is assumed to exist."
+  data_sync_error: "Data sync failures via connectors or external systems match integration_api_failure, which explicitly covers connector data sync failures and stopped syncing, distinct from SCIM/account provisioning sync."
+  feature_request: "Direct semantic match: both describe explicit proposals for new functionality not currently supported."
+  how_to_question: "Direct semantic match: both describe informational or setup questions about using existing documented features without a defect claim."
+  invoice_dispute: "Disputing the accuracy of an invoice or charge without demanding a refund matches billing_discrepancy, which covers reconciliation and explanation requests for invoice mismatches."
+  login_auth_failure: "This broad vendor label covers all authentication-related failure modes that the induced taxonomy split into finer leaves: SSO redirect loops, lockouts with unlock errors, MFA code delivery failures, and password reset failures."
+  performance_degradation: "Direct semantic match: both describe slowness, hanging, or timeout issues in core product surfaces unrelated to integration failures."
+  permissions_rbac: "Vendor label covers both role-based access bugs (role_permission_mismatch) and forward-looking access configuration/setup requests (access_configuration_request), which the induced taxonomy splits based on whether it's a defect report or a how-to/setup request."
+  plan_change: "Direct semantic match: both cover requests to change subscription tier, seat count, or billing cadence, plus informational questions about plan structure."
+  refund_request: "Direct semantic match: both describe explicit requests for a refund or credit as the remedy for a billing issue."
+  user_provisioning: "Vendor label covers both automated provisioning pipeline failures (SCIM/bulk import, user_provisioning_failure) and manual ad-hoc requests to add or configure specific users (access_configuration_request), which the induced taxonomy separates based on mechanism."

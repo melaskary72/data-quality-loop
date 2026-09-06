@@ -1,0 +1,86 @@
+# Induced leaf to ground-truth leaf alignment.
+#
+# Written by hand at build time, after reading taxonomy.yaml. This file lives
+# in eval/ because it encodes knowledge of the sealed ground-truth vocabulary,
+# and eval/ is the only place permitted to hold that (BUILD_CONTRACT C3).
+#
+# It is committed so a reviewer can audit exactly how induced leaves were
+# credited against sealed truth. Read it before trusting any accuracy number in
+# the README.
+#
+# Scoring rule: a prediction of induced leaf L on a ticket whose true label is
+# G counts as correct when G appears in alignment[L]. Where an induced leaf
+# legitimately covers two ground-truth leaves, both are listed, and the reason
+# is stated. Where it covers one, only one is listed.
+#
+# The generous direction is the dangerous one. Every multi-target entry below
+# inflates accuracy if it is wrong, so each one carries its justification.
+
+alignment:
+  # The induced taxonomy split the vendor's single login_auth_failure class
+  # four ways: loop, lockout, MFA delivery, password reset. All four are
+  # genuine subtypes of the one ground-truth leaf, so each maps to it alone.
+  # This is a one-to-many split, which costs nothing in accuracy terms.
+  sso_login_loop:
+    - login_auth_failure
+  account_lockout:
+    - login_auth_failure
+  mfa_delivery_failure:
+    - login_auth_failure
+  password_reset_failure:
+    - login_auth_failure
+
+  role_permission_mismatch:
+    - permissions_rbac
+
+  user_provisioning_failure:
+    - user_provisioning
+
+  # Defined as "how-to or setup requests about configuring roles and access
+  # boundaries", which straddles two ground-truth leaves: a request to
+  # configure access is permissions_rbac, and a question about how to do it is
+  # how_to_question. The induced leaf genuinely does not distinguish them, so
+  # both are credited. This is the one entry a sceptical reviewer should push
+  # on hardest, and it is listed here for exactly that reason.
+  access_configuration_request:
+    - permissions_rbac
+    - how_to_question
+
+  refund_request:
+    - refund_request
+  billing_discrepancy:
+    - invoice_dispute
+  plan_tier_management:
+    - plan_change
+
+  performance_degradation:
+    - performance_degradation
+
+  # The induced taxonomy merged the vendor's api_integration_error and
+  # data_sync_error into one leaf covering "failures in external-facing
+  # technical integrations". Both ground-truth leaves are legitimately inside
+  # it, so both are credited. A merge like this makes the induced taxonomy
+  # coarser than truth, which costs recall on the distinction but is not an
+  # error by the labeler.
+  integration_api_failure:
+    - api_integration_error
+    - data_sync_error
+
+  product_howto_question:
+    - how_to_question
+  feature_request:
+    - feature_request
+
+# Ground-truth leaves with no induced counterpart at all.
+#
+# The induced taxonomy has no data export leaf. Nothing the labeler can
+# possibly output will be scored correct on those tickets, so every one of them
+# is a guaranteed error. That is a real cost of this induced taxonomy and it is
+# reported as its own line in the results rather than hidden inside the overall
+# accuracy figure.
+#
+# The tempting move is to add product_howto_question to the alignment for
+# data_export_request, since export tickets do tend to land there. That would
+# be crediting a wrong label to make a number look better, so it is not done.
+unreachable_ground_truth_leaves:
+  - data_export_request

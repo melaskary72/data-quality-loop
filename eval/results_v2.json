@@ -1,0 +1,61 @@
+{
+  "abstention": {
+    "abstentions": 15,
+    "ambiguous_base_rate": 0.05,
+    "ambiguous_share_of_abstentions": 0.06666666666666667,
+    "concentration_ratio": 1.3333333333333333,
+    "heuristic_accuracy_on_abstained": 0.2,
+    "heuristic_accuracy_on_answered": 0.7675213675213676,
+    "n_abstained": 15,
+    "n_answered": 585,
+    "reading": "Abstention is calibrated when the deterministic labeler scores materially lower on abstained items than on answered ones, which means the model abstained on genuinely hard tickets rather than at random."
+  },
+  "acceptable_alt_policy": "A prediction matching the documented acceptable_alt on a planted ambiguous ticket counts as correct.",
+  "accuracy_delta_points": 0.8787878787878789,
+  "alignment_file": "eval/taxonomy_alignment.yaml",
+  "corpus_size": 600,
+  "duplicates": {
+    "clusters_flagged": 47,
+    "pairs_recovered": 17,
+    "planted_pairs": 18,
+    "precision_against_planted_pairs": 0.3617021276595745,
+    "precision_note": "Precision is scored against the 18 planted pairs only. 30 of 30 unmatched clusters consist entirely of tickets built from one template shape, so they are real textual near duplicates that were never planted. The denominator is stated rather than adjusted.",
+    "recall": 0.9444444444444444,
+    "unmatched_clusters": 30,
+    "unmatched_explained_by_shared_template_shape": 30
+  },
+  "generated_at": "2026-09-06T00:29:31+00:00",
+  "heuristic_accuracy": 0.7533333333333333,
+  "llm_accuracy": 0.8966666666666666,
+  "pii": {
+    "flagged_spans": 32,
+    "flagged_tickets": 25,
+    "leaking_tickets": [],
+    "leaks_after_scrub": 0,
+    "planted_spans": 32,
+    "planted_tickets": 25,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "seeded_errors": {
+    "corrected_in_v2": 31,
+    "correction_rate_of_caught": 0.96875,
+    "flagged_by_qa": 32,
+    "planted": 40,
+    "recall": 0.8
+  },
+  "tickets_in_unreachable_classes": 27,
+  "total_cost_usd": 2.034283,
+  "unreachable_ground_truth_leaves": [
+    "data_export_request"
+  ],
+  "unreachable_note": "The induced taxonomy has no counterpart for these ground-truth leaves, so every ticket in them is a guaranteed error. They are 27 of 600 tickets, and they are counted as errors rather than excluded.",
+  "v1_correct": 538,
+  "v1_scored": 600,
+  "v2_accuracy": 0.9054545454545454,
+  "v2_correct": 498,
+  "v2_excludes_merged_duplicates": 50,
+  "v2_scored": 550,
+  "vendor_baseline_accuracy": 0.9333333333333333,
+  "version": "v2"
+}

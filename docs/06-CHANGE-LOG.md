@@ -249,3 +249,76 @@ successful run.
 The same check flagged `dql/qa.py` for naming the sealed ground truth path in a
 docstring that says the module never opens it. The lint is deliberately blunt,
 so the docstring was reworded rather than the rule weakened.
+
+### Bug: the vendor alignment was one-to-one and lost information
+
+`data/vendor_alignment.yaml` forced each vendor label onto a single induced
+leaf. The induced taxonomy splits `login_auth_failure` into four leaves, so no
+single leaf covered it and the aligner correctly returned null. The consequence
+was severe and easy to miss: **106 of 600 tickets were excluded from every
+agreement statistic**, and three seeded label errors were structurally
+invisible, because a disagreement cannot be measured against a label that maps
+to nothing.
+
+Fixed by making the alignment one-to-many: a vendor label maps to every induced
+leaf that legitimately covers it, and a finer label inside that set counts as
+agreement rather than as a disagreement. Uncovered tickets went from 106 to 0.
+
+Regenerated with a new `python -m dql induce --realign`, which rebuilds only
+the alignment against the taxonomy that is already locked. Re-inducing would
+have produced a different taxonomy and invalidated 600 labels that cost real
+money.
+
+A side effect worth recording: the entire `taxonomy_granularity` flag category
+went from 49 items to 0. Those items were never a taxonomy problem. They were
+an artifact of the lossy one-to-one mapping.
+
+### Change: a second route to a suspected label error
+
+The detector required both annotators to agree against the vendor. With a
+heuristic labeler scoring 75.3 percent, requiring unanimity suppressed true
+positives: five seeded errors were blocked purely because the heuristic
+disagreed with the LLM.
+
+Added a second, independent route: the LLM alone disagreeing at 0.90 confidence
+or above. Measured before implementing, it recovered 4 further seeded errors at
+the cost of 1 additional false positive.
+
+Seeded error recall went from 65.0 to 80.0 percent.
+
+### Bug: comparing a label against a set marked every duplicate cluster contested
+
+Introduced while making the alignment set-valued. The contested-cluster test
+compared each member's label string against a set of labels, which is never
+equal, so all 47 clusters were routed instead of the handful that genuinely
+disagree. The human queue jumped to 133.
+
+Caught immediately because the queue-size band fired. Fixed by comparing
+assigned labels to each other, and separately checking whether members conflict
+with their own vendor set. Routed duplicates went from 42 to 3, queue to 94.
+
+### Measured: two release gates cannot be met, and are left failing
+
+Both remaining gate failures were traced to their cause rather than tuned away.
+
+**Seeded error recall: 80.0 percent against an 85 percent gate.** The ceiling is
+87.5 percent. Of the 40 planted errors, 5 are undetectable by construction: the
+LLM labeler independently reproduced the vendor's wrong label, and a detector
+built on annotator disagreement cannot catch an error that both annotators
+share. Closing the remaining gap would mean tuning thresholds against the answer
+key, which is the one thing the seeded-truth design exists to prevent.
+
+**v2 accuracy delta: below the required 5 points.** v1 is already 89.7 percent,
+and 27 of its errors are `data_export_request` tickets, a ground-truth class the
+induced taxonomy has no leaf for at all. Those cannot be fixed by any amount of
+human review, and fixing them by editing the taxonomy would require using
+ground truth to design the vocabulary, which is leakage.
+
+**The uncomfortable number.** Measured against ground truth, the vendor's
+original labels score 93.3 percent, above dataset v2 at 90.5 percent. The
+induced taxonomy genuinely loses accuracy on this corpus, mostly through the
+coverage gap above. This is reported in the README rather than omitted, because
+a pipeline that does not beat its input on every measure is a normal outcome and
+hiding it would make every other number in the repo less believable.
+
+Both gates are left failing and the build exits non zero.

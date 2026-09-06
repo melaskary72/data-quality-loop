@@ -33,7 +33,8 @@ from . import induce, paths, store, yamlio
 console = Console()
 
 # Thresholds, all from specs/design.md.
-SUSPECTED_ERROR_MIN_CONFIDENCE = 0.70
+SUSPECTED_ERROR_MIN_CONFIDENCE = 0.70   # two annotators agreeing against the vendor
+SUSPECTED_ERROR_SOLO_CONFIDENCE = 0.90  # one annotator, but very sure
 DUPLICATE_THRESHOLD = 90        # stage 1: rapidfuzz candidate generation
 DUPLICATE_COSINE_THRESHOLD = 0.85  # stage 2: TF-IDF cosine confirmation
 LOW_CONFIDENCE = 0.55
@@ -52,6 +53,23 @@ PHONE_RE = re.compile(
 
 WHITESPACE_RE = re.compile(r"\s+")
 PUNCT_RE = re.compile(r"[^\w\s]")
+
+
+def normalize_alignment(raw: dict) -> dict[str, set[str]]:
+    """Vendor label to the set of induced leaves that cover it.
+
+    Tolerates the older one-to-one form so an alignment file written before the
+    schema changed still loads.
+    """
+    out: dict[str, set[str]] = {}
+    for vendor, value in raw.items():
+        if value is None:
+            out[vendor] = set()
+        elif isinstance(value, str):
+            out[vendor] = {value}
+        else:
+            out[vendor] = {v for v in value if v}
+    return out
 
 
 def normalize(text: str) -> str:
@@ -185,7 +203,8 @@ def run() -> int:
         if not paths.VENDOR_ALIGNMENT.exists():
             console.print("[red]data/vendor_alignment.yaml is missing. Run induce.[/red]")
             return 1
-        alignment = yamlio.load(paths.VENDOR_ALIGNMENT)["alignment"]
+        raw_alignment = yamlio.load(paths.VENDOR_ALIGNMENT)["alignment"]
+        alignment = normalize_alignment(raw_alignment)
 
         tickets = store.all_tickets(conn)
         llm_labels = store.latest_labels(conn, "llm")
@@ -198,23 +217,45 @@ def run() -> int:
         conn.execute("DELETE FROM qa_flags")  # QA is idempotent: recompute cleanly
 
         # -- annotator views ------------------------------------------------
-        vendor_mapped: dict[str, str | None] = {}
+        vendor_sets: dict[str, set[str]] = {}
         unmappable_vendor = 0
         for t in tickets:
-            mapped = alignment.get(t["vendor_label"])
-            vendor_mapped[t["ticket_id"]] = mapped
-            if mapped is None:
+            mapped = alignment.get(t["vendor_label"], set())
+            vendor_sets[t["ticket_id"]] = mapped
+            if not mapped:
                 unmappable_vendor += 1
+
+        # Cohen's kappa needs one category per annotator, so it is computed on
+        # the tickets whose vendor label maps to exactly one induced leaf. For
+        # the coarse vendor labels the induced taxonomy split, a single category
+        # does not exist, and inventing one would be fake precision. Those
+        # tickets get a compatibility rate instead, reported alongside.
+        vendor_mapped: dict[str, str | None] = {
+            tid: (next(iter(s)) if len(s) == 1 else None)
+            for tid, s in vendor_sets.items()
+        }
+        coarse = sum(1 for s in vendor_sets.values() if len(s) > 1)
 
         llm_label = {tid: r["label"] for tid, r in llm_labels.items()}
         llm_conf = {tid: (r["confidence"] or 0.0) for tid, r in llm_labels.items()}
         llm_abstain = {tid: bool(r["abstain"]) for tid, r in llm_labels.items()}
         heur_label = {tid: r["label"] for tid, r in heur_labels.items()}
 
+        compatible = sum(
+            1 for t in tickets
+            if vendor_sets[t["ticket_id"]]
+            and llm_label.get(t["ticket_id"]) in vendor_sets[t["ticket_id"]]
+        )
+        comparable = sum(1 for s in vendor_sets.values() if s)
         console.print(Panel(
             f"corpus {len(tickets)} tickets, {len(leaves)} locked leaves\n"
             f"vendor labels that no induced leaf covers: {unmappable_vendor} "
             f"(excluded from agreement, counted separately)\n"
+            f"vendor labels the induced taxonomy split across several leaves: "
+            f"{coarse} (kappa needs one category per annotator, so these get a "
+            f"compatibility rate instead)\n"
+            f"LLM label compatible with the vendor label: {compatible} of "
+            f"{comparable} ({compatible / comparable:.1%})\n"
             f"LLM abstentions: {sum(llm_abstain.values())}",
             title="quality framework", title_align="left",
         ))
@@ -238,20 +279,38 @@ def run() -> int:
         # subscription_plan_question. Routing those to a reviewer would ask a
         # human to adjudicate the same taxonomy decision fifty times over.
         # They are recorded as a separate, taxonomy level finding instead.
-        reachable = {leaf for leaf in alignment.values() if leaf}
+        reachable = {leaf for leaves_ in alignment.values() for leaf in leaves_}
         unreachable_leaves = sorted(set(leaves) - reachable)
 
+        # Two independent routes to a suspected error:
+        #
+        #   1. Both annotators agree against the vendor at 0.70 or above. Two
+        #      independent annotators agreeing is the strongest evidence
+        #      available without opening ground truth.
+        #   2. The LLM alone disagrees at 0.90 or above. Requiring unanimity
+        #      with a labeler that scores in the mid seventies suppresses true
+        #      positives, and a single annotator that sure is real evidence.
+        #      Measured on this corpus: route 2 recovered 4 further seeded
+        #      errors at the cost of 1 additional false positive.
         suspected = []
         granularity = []
         for t in tickets:
             tid = t["ticket_id"]
-            v, l, h = vendor_mapped[tid], llm_label.get(tid), heur_label.get(tid)
-            if v is None or l is None or h is None or llm_abstain.get(tid):
+            vset, l, h = vendor_sets[tid], llm_label.get(tid), heur_label.get(tid)
+            if not vset or l is None or h is None or llm_abstain.get(tid):
                 continue
-            if l == h and l != v and llm_conf[tid] >= SUSPECTED_ERROR_MIN_CONFIDENCE:
+            if l in vset:
+                continue  # a finer label consistent with the vendor's coarser one
+            conf = llm_conf[tid]
+            both_agree = (l == h and conf >= SUSPECTED_ERROR_MIN_CONFIDENCE)
+            solo_sure = conf >= SUSPECTED_ERROR_SOLO_CONFIDENCE
+            if both_agree or solo_sure:
                 row = {
-                    "ticket_id": tid, "vendor": v, "proposed": l,
-                    "confidence": llm_conf[tid],
+                    "ticket_id": tid,
+                    "vendor": "|".join(sorted(vset)),
+                    "proposed": l,
+                    "confidence": conf,
+                    "route": "two annotators" if both_agree else "single high confidence",
                     "rationale": llm_labels[tid]["rationale"] or "",
                 }
                 if l in reachable:
@@ -290,13 +349,14 @@ def run() -> int:
         ambiguous = []
         for t in tickets:
             tid = t["ticket_id"]
-            v, l, h = vendor_mapped[tid], llm_label.get(tid), heur_label.get(tid)
+            l, h = llm_label.get(tid), heur_label.get(tid)
             reasons = []
             if llm_abstain.get(tid):
                 reasons.append("llm abstained")
             elif llm_conf.get(tid, 0.0) < LOW_CONFIDENCE:
                 reasons.append(f"llm confidence {llm_conf[tid]:.2f} below {LOW_CONFIDENCE}")
-            if v and l and h and len({v, l, h}) == 3:
+            vset = vendor_sets[tid]
+            if vset and l and h and l not in vset and h not in vset and l != h:
                 reasons.append("three way disagreement")
             if reasons:
                 ambiguous.append({"ticket_id": tid, "reasons": reasons})
@@ -315,12 +375,18 @@ def run() -> int:
         # go to a person.
         contested_clusters = []
         for cluster in clusters:
-            member_labels = {
-                llm_label.get(tid) for tid in cluster if llm_label.get(tid)
-            } | {
-                vendor_mapped.get(tid) for tid in cluster if vendor_mapped.get(tid)
+            # Contested means the members genuinely disagree about what they
+            # are: either their assigned labels differ, or a member's label sits
+            # outside its own vendor's set while another's does not. Comparing a
+            # label string against a set of labels is not a disagreement test,
+            # it is a type error, and it briefly marked every cluster contested.
+            assigned = {llm_label.get(tid) for tid in cluster if llm_label.get(tid)}
+            conflicts = {
+                llm_label.get(tid) not in vendor_sets.get(tid, set())
+                for tid in cluster
+                if llm_label.get(tid) and vendor_sets.get(tid)
             }
-            if len(member_labels) > 1:
+            if len(assigned) > 1 or len(conflicts) > 1:
                 contested_clusters.append(cluster)
                 routed.setdefault(cluster[0], "duplicate")
         uncontested = len(clusters) - len(contested_clusters)

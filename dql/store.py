@@ -99,6 +99,15 @@ CREATE TABLE IF NOT EXISTS llm_cache (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS dataset_v2 (
+    ticket_id     TEXT PRIMARY KEY,
+    label         TEXT,
+    alt_label     TEXT,
+    body_scrubbed TEXT NOT NULL,
+    status        TEXT NOT NULL,
+    reason        TEXT
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
