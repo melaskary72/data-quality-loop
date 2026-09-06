@@ -321,7 +321,16 @@ def run(version: str = "both") -> int:
 
     _write(results, v2_results)
     _print(results, v2_results)
-    return _gates(results, v2_results, total_cost)
+    code = _gates(results, v2_results, total_cost)
+
+    with store.session() as conn:
+        run_id = store.start_run(conn, "evaluate")
+        store.finish_run(
+            conn, run_id,
+            status="ok" if code == 0 else "failed",
+            note="all gates pass" if code == 0 else "release gates failed",
+        )
+    return code
 
 
 def _write(v1_results: dict, v2_results: dict | None) -> None:

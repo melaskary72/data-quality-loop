@@ -37,11 +37,44 @@ ACTIONS = {
     "s": ("skip", "skip, decide later"),
 }
 
+# Fast-adjudication guard.
+#
+# A reviewer once accepted 22 items in five seconds by holding a key down. The
+# decisions recorded cleanly and nothing complained, which is a real hole in a
+# tool whose entire output is human judgement.
+#
+# The guard confirms rather than discards. Silently throwing away a reviewer's
+# input has its own failure mode, and a genuinely obvious item can be decided
+# quickly, so the run has to be both fast AND identical AND sustained before
+# anything interrupts.
+FAST_RUN_LENGTH = 3          # identical decisions in a row before asking
+FAST_FLOOR_DEFAULT = 1.0     # seconds
+FAST_FLOOR_BOUNDS = (0.5, 3.0)
+
 REASON_LABEL = {
     "suspected_label_error": "two annotators agree against the vendor label",
     "ambiguity": "the model was unsure or all three annotators disagree",
     "duplicate": "representative of a near-duplicate cluster",
 }
+
+
+def fast_floor(conn) -> float:
+    """The threshold below which a decision looks like a keypress, not a call.
+
+    Derived from the reviewer's own history rather than hardcoded: the 5th
+    percentile of past adjudication times, clamped to a sane range. With little
+    history it falls back to one second, which sat in a wide empty gap in the
+    observed data (real decisions from 1.4s upward, a key-mash run at 0.16s to
+    0.60s).
+    """
+    times = sorted(
+        r["seconds"] for r in conn.execute("SELECT seconds FROM adjudications")
+    )
+    if len(times) < 20:
+        return FAST_FLOOR_DEFAULT
+    p5 = times[max(0, int(len(times) * 0.05) - 1)]
+    low, high = FAST_FLOOR_BOUNDS
+    return min(high, max(low, p5))
 
 
 def load_queue(conn) -> list[dict]:
@@ -179,7 +212,7 @@ def show_taxonomy(taxonomy: dict) -> None:
 
 
 def record(conn, ticket_id: str, decision: str, final_label: str | None,
-           reviewer: str, seconds: float) -> None:
+           reviewer: str, seconds: float) -> dict:
     entry = {
         "ticket_id": ticket_id,
         "decision": decision,
@@ -190,12 +223,96 @@ def record(conn, ticket_id: str, decision: str, final_label: str | None,
     }
     with paths.ADJUDICATIONS.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
     conn.execute(
         "INSERT OR REPLACE INTO adjudications VALUES (?,?,?,?,?,?)",
         (entry["ticket_id"], entry["decision"], entry["final_label"],
          entry["reviewer"], entry["ts"], entry["seconds"]),
     )
     conn.commit()
+    return entry
+
+
+def unrecord(conn, entries: list[dict]) -> None:
+    """Remove specific adjudications from both stores.
+
+    Both, always. Only the jsonl drives the resume logic, but `improve` reads
+    the table, so leaving rows behind would let the improvement pass consume
+    decisions the reviewer just rejected.
+    """
+    targets = {(e["ticket_id"], e["ts"]) for e in entries}
+    kept = []
+    for line in paths.ADJUDICATIONS.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        if (record["ticket_id"], record["ts"]) not in targets:
+            kept.append(record)
+    with paths.ADJUDICATIONS.open("w", encoding="utf-8") as fh:
+        for record in kept:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    for ticket_id, ts in targets:
+        conn.execute(
+            "DELETE FROM adjudications WHERE ticket_id = ? AND ts = ?",
+            (ticket_id, ts),
+        )
+    conn.commit()
+
+
+def confirm_fast_run(conn, session_log: list[dict], floor: float) -> list[str]:
+    """Interrupt on a sustained run of fast identical decisions.
+
+    Returns ticket ids to put back in the queue. Confirming keeps everything.
+    """
+    tail = session_log[-FAST_RUN_LENGTH:]
+    if len(tail) < FAST_RUN_LENGTH:
+        return []
+    if len({e["decision"] for e in tail}) != 1:
+        return []
+    if any(e["seconds"] >= floor for e in tail):
+        return []
+
+    # Extend backwards over the whole run, not just the trigger window.
+    run = list(tail)
+    for entry in reversed(session_log[:-FAST_RUN_LENGTH]):
+        if entry["decision"] == tail[0]["decision"] and entry["seconds"] < floor:
+            run.insert(0, entry)
+        else:
+            break
+
+    table = Table(header_style="bold")
+    table.add_column("Ticket")
+    table.add_column("Decision")
+    table.add_column("Seconds", justify="right")
+    for entry in run:
+        table.add_row(entry["ticket_id"], entry["decision"], f"{entry['seconds']:.2f}")
+
+    console.print()
+    console.print(Panel(
+        f"[bold]{len(run)}[/bold] identical decisions in a row, each under "
+        f"{floor:.2f}s.\n\n"
+        "That is the signature of a held-down key rather than a series of "
+        "judgements. These are recorded already, nothing has been thrown away.\n\n"
+        "[bold]y[/bold] keep them, they were genuinely that obvious\n"
+        "[bold]n[/bold] undo them and put those tickets back in the queue",
+        title="[yellow]that was fast", title_align="left",
+    ))
+    console.print(table)
+
+    answer = console.input("\n[bold]keep these decisions?[/bold] [y/N] > ").strip().lower()
+    if answer == "y":
+        console.print("[dim]kept.[/dim]")
+        for entry in run:
+            entry["confirmed_fast"] = True
+        return []
+
+    unrecord(conn, run)
+    ids = [e["ticket_id"] for e in run]
+    for entry in run:
+        session_log.remove(entry)
+    console.print(f"[dim]undone, {len(ids)} ticket(s) returned to the queue.[/dim]")
+    console.input("press enter to continue ")
+    return ids
 
 
 def run(reviewer: str = "mohamed", limit: int | None = None) -> int:
@@ -235,16 +352,26 @@ def run(reviewer: str = "mohamed", limit: int | None = None) -> int:
         ))
         console.input("press enter to start ")
 
+        run_id = store.start_run(conn, "review", model="human")
         reviewed = 0
-        for position, item in enumerate(pending, start=1):
+        floor = fast_floor(conn)
+        session_log: list[dict] = []
+        queue = list(pending)
+        cursor = 0
+        while cursor < len(queue):
+            item = queue[cursor]
+            position = cursor + 1
+            cursor += 1
             while True:
-                render_item(conn, item, position, len(pending), leaves)
+                render_item(conn, item, position, len(queue), leaves)
                 started = time.monotonic()
                 key = prompt_action()
                 elapsed = time.monotonic() - started
 
                 if key == "q":
-                    _summary(conn, reviewed, len(queue))
+                    store.finish_run(conn, run_id,
+                                     note=f"{reviewed} adjudicated this session")
+                    _summary(conn, reviewed, len(queue), session_log, floor)
                     return 0
                 if key == "t":
                     show_taxonomy(taxonomy)
@@ -287,15 +414,26 @@ def run(reviewer: str = "mohamed", limit: int | None = None) -> int:
                     if final_label is None:
                         continue
 
-                record(conn, item["ticket_id"], decision, final_label, reviewer, elapsed)
+                entry = record(conn, item["ticket_id"], decision, final_label,
+                               reviewer, elapsed)
+                session_log.append(entry)
                 reviewed += 1
+
+                returned = confirm_fast_run(conn, session_log, floor)
+                if returned:
+                    reviewed -= len(returned)
+                    by_id = {i["ticket_id"]: i for i in queue}
+                    queue.extend(by_id[t] for t in returned if t in by_id)
                 break
 
-        _summary(conn, reviewed, len(queue))
+        store.finish_run(conn, run_id, note=f"{reviewed} adjudicated this session")
+        _summary(conn, reviewed, len(queue), session_log, floor)
     return 0
 
 
-def _summary(conn, reviewed: int, queue_size: int) -> None:
+def _summary(conn, reviewed: int, queue_size: int,
+             session_log: list[dict] | None = None,
+             floor: float = FAST_FLOOR_DEFAULT) -> None:
     rows = list(conn.execute(
         "SELECT decision, COUNT(*) n, SUM(seconds) total FROM adjudications GROUP BY decision"
     ))
@@ -310,6 +448,20 @@ def _summary(conn, reviewed: int, queue_size: int) -> None:
         total_items += r["n"]
         total_seconds += r["total"] or 0.0
     console.print(table)
+    fast = [
+        e for e in (session_log or [])
+        if e["seconds"] < floor and not e.get("confirmed_fast")
+    ]
+    if fast:
+        console.print(Panel(
+            f"{len(fast)} decision(s) this session came in under {floor:.2f}s "
+            "without being confirmed:\n"
+            + ", ".join(f"{e['ticket_id']} ({e['seconds']:.2f}s)" for e in fast[:20])
+            + "\n\nThey are recorded. Re-run review after deleting them from "
+              "data/adjudications.jsonl if you want another look.",
+            title="[yellow]fast decisions in this session", title_align="left",
+        ))
+
     console.print(Panel(
         f"this session: [bold]{reviewed}[/bold] items\n"
         f"recorded overall: [bold]{total_items}[/bold] of {queue_size} routed\n"

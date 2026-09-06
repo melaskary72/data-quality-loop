@@ -1,4 +1,4 @@
-# Vendor vocabulary to induced leaves.
+# Vendor vocabulary to induced leaf.
 # Derived from public vendor label strings plus the induced taxonomy.
 # Never derived from ground truth, so QA may use it without leaking.
 # A vendor label maps to EVERY induced leaf that legitimately covers

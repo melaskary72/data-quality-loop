@@ -52,10 +52,16 @@ def run(email: bool = False) -> int:
         )
         corpus = store.ticket_count(conn)
 
+    with store.session() as conn:
+        run_id = store.start_run(conn, "report")
+
     paths.REPORT.write_text(
         _render(v1, v2, cost_rows, total_cost, adjudications, routed, flag_counts, corpus),
         encoding="utf-8",
     )
+    with store.session() as conn:
+        store.finish_run(conn, run_id, note=f"{total_cost:.4f} USD total spend")
+
     console.print(Panel(
         f"written to {paths.REPORT}\n"
         f"total API spend {total_cost:.4f} USD",

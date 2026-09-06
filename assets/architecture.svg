@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 620" width="1180" height="620" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect width="1180" height="620" fill="#ffffff"/>
+  <style>
+    .box  { rx: 8; ry: 8; stroke-width: 1.5; }
+    .det  { fill: #eef4ff; stroke: #4a6fa5; }
+    .llm  { fill: #fff3e0; stroke: #c77700; }
+    .hum  { fill: #f3e8ff; stroke: #7c4dbd; }
+    .gate { fill: #ffeaea; stroke: #c0392b; }
+    .out  { fill: #eafaf1; stroke: #1e8449; }
+    .t    { font-size: 13px; font-weight: 600; fill: #1b1f23; }
+    .s    { font-size: 11px; fill: #4a5568; }
+    .lbl  { font-size: 10.5px; fill: #4a5568; font-style: italic; }
+    .edge { stroke: #8792a2; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+    .key  { font-size: 11px; fill: #4a5568; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8792a2"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="34" font-size="17" font-weight="700" fill="#1b1f23">data-quality-loop</text>
+  <text x="30" y="54" class="s">taxonomy induction, dual labeling, quality measurement, human review, and a measured improvement cycle</text>
+
+  <rect class="box det" x="30" y="86" width="176" height="62"/>
+  <text x="46" y="110" class="t">Corpus generator</text>
+  <text x="46" y="128" class="s">600 tickets, fixed seed</text>
+  <text x="46" y="142" class="s">seeded truth sealed</text>
+
+  <rect class="box det" x="30" y="182" width="176" height="62"/>
+  <text x="46" y="206" class="t">SQLite store</text>
+  <text x="46" y="224" class="s">state, response cache,</text>
+  <text x="46" y="238" class="s">per-call cost, hash locks</text>
+
+  <rect class="box llm" x="262" y="86" width="186" height="62"/>
+  <text x="278" y="110" class="t">Taxonomy induction</text>
+  <text x="278" y="128" class="s">Claude agent proposes,</text>
+  <text x="278" y="142" class="s">validators gate, hash locks</text>
+
+  <rect class="box llm" x="262" y="196" width="186" height="56"/>
+  <text x="278" y="220" class="t">LLM labeler</text>
+  <text x="278" y="238" class="s">structured output, confidence</text>
+
+  <rect class="box det" x="262" y="268" width="186" height="56"/>
+  <text x="278" y="292" class="t">Heuristic labeler</text>
+  <text x="278" y="310" class="s">deterministic, taxonomy text only</text>
+
+  <rect class="box det" x="504" y="176" width="196" height="106"/>
+  <text x="520" y="200" class="t">Quality framework</text>
+  <text x="520" y="219" class="s">kappa, confusion matrices</text>
+  <text x="520" y="234" class="s">suspected label errors</text>
+  <text x="520" y="249" class="s">duplicates, PII, ambiguity</text>
+  <text x="520" y="270" class="s">routes 15.7 percent to a human</text>
+
+  <rect class="box hum" x="756" y="86" width="186" height="62"/>
+  <text x="772" y="110" class="t">Human review queue</text>
+  <text x="772" y="128" class="s">94 items, timed, resumable</text>
+  <text x="772" y="142" class="s">fast-adjudication guard</text>
+
+  <rect class="box det" x="756" y="196" width="186" height="52"/>
+  <text x="772" y="220" class="t">Dataset v1</text>
+  <text x="772" y="238" class="s">89.7 percent accurate</text>
+
+  <rect class="box det" x="756" y="286" width="186" height="62"/>
+  <text x="772" y="310" class="t">Improvement pass</text>
+  <text x="772" y="328" class="s">corrections, dedup, PII scrub</text>
+  <text x="772" y="342" class="s">every change diffed</text>
+
+  <rect class="box det" x="756" y="386" width="186" height="52"/>
+  <text x="772" y="410" class="t">Dataset v2</text>
+  <text x="772" y="428" class="s">90.7 percent accurate</text>
+
+  <rect class="box gate" x="504" y="386" width="196" height="106"/>
+  <text x="520" y="410" class="t">Eval harness</text>
+  <text x="520" y="429" class="s">the only reader of</text>
+  <text x="520" y="444" class="s">sealed ground truth</text>
+  <text x="520" y="465" class="s">5 release gates</text>
+  <text x="520" y="482" class="s">2 failing, and left failing</text>
+
+  <rect class="box out" x="204" y="386" width="196" height="106"/>
+  <text x="220" y="410" class="t">Outputs</text>
+  <text x="220" y="429" class="s">REPORT.md</text>
+  <text x="220" y="444" class="s">train.jsonl, eval.jsonl</text>
+  <text x="220" y="459" class="s">DATASHEET.md</text>
+  <text x="220" y="480" class="s">results_v1.json, results_v2.json</text>
+
+  <path class="edge" d="M 118 148 L 118 182"/>
+  <path class="edge" d="M 206 117 L 262 117"/>
+  <path class="edge" d="M 355 148 L 355 196"/>
+  <path class="edge" d="M 206 213 L 262 224"/>
+  <path class="edge" d="M 448 224 L 504 224"/>
+  <path class="edge" d="M 448 296 L 504 252"/>
+  <path class="edge" d="M 700 200 L 756 140"/>
+  <text x="694" y="160" class="lbl">disagreement,</text>
+  <text x="694" y="173" class="lbl">low confidence, flags</text>
+  <path class="edge" d="M 700 232 L 756 222"/>
+  <text x="706" y="248" class="lbl">clean</text>
+  <path class="edge" d="M 849 148 L 849 286"/>
+  <text x="856" y="222" class="lbl">adjudications</text>
+  <path class="edge" d="M 849 248 L 849 286"/>
+  <path class="edge" d="M 849 348 L 849 386"/>
+  <path class="edge" d="M 756 222 C 660 300 660 340 700 412"/>
+  <path class="edge" d="M 756 412 L 700 412"/>
+  <path class="edge" d="M 504 439 L 400 439"/>
+  <path class="edge" d="M 206 244 C 150 320 150 360 204 420"/>
+
+  <text x="30" y="528" font-size="12" font-weight="700" fill="#1b1f23">Legend</text>
+  <rect class="box det" x="30" y="540" width="16" height="14"/><text x="54" y="552" class="key">deterministic, fixed seed, no model calls</text>
+  <rect class="box llm" x="330" y="540" width="16" height="14"/><text x="354" y="552" class="key">Claude, cached and cost tracked</text>
+  <rect class="box hum" x="620" y="540" width="16" height="14"/><text x="644" y="552" class="key">human judgement</text>
+  <rect class="box gate" x="830" y="540" width="16" height="14"/><text x="854" y="552" class="key">sealed ground truth, release gates</text>
+  <text x="30" y="586" class="key">Every number in this diagram comes from the committed run: eval/results_v1.json, eval/results_v2.json, and the pipeline store.</text>
+</svg>

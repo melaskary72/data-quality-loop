@@ -1,12 +1,17 @@
+{"after": "product_howto_question", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0075"}
+{"after": "product_howto_question", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0122"}
 {"after": "user_provisioning_failure", "before": null, "field": "alt_label", "reason": "reviewer marked genuinely ambiguous", "ticket_id": "T-0127"}
 {"after": "integration_api_failure", "before": null, "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0289"}
 {"after": "integration_api_failure", "before": null, "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0290"}
 {"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0328"}
+{"after": "product_howto_question", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0342"}
 {"after": "user_provisioning_failure", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_heuristic", "ticket_id": "T-0353"}
 {"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0393"}
 {"after": "access_configuration_request", "before": null, "field": "label", "reason": "reviewer decision: other_leaf", "ticket_id": "T-0426"}
 {"after": "user_provisioning_failure", "before": null, "field": "alt_label", "reason": "reviewer marked genuinely ambiguous", "ticket_id": "T-0463"}
+{"after": "product_howto_question", "before": "plan_tier_management", "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0484"}
 {"after": "product_howto_question", "before": null, "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0583"}
+{"after": "product_howto_question", "before": "access_configuration_request", "field": "label", "reason": "reviewer decision: accept_vendor", "ticket_id": "T-0588"}
 {"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0002", "ticket_id": "T-0520"}
 {"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0006", "ticket_id": "T-0029"}
 {"after": "merged_duplicate", "before": "kept", "field": "status", "reason": "collapsed into canonical member T-0014", "ticket_id": "T-0318"}

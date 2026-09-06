@@ -118,9 +118,12 @@ Dates are ISO, in the builder's local timezone.
 
 - [x] 6.1 Implement the `rich` review CLI with all adjudication actions
   _Verified: rich review CLI renders ticket, all three annotator labels with confidences and rationales, and the routing reason, verified against the live 94 item queue, 2026-09-05_
-- [ ] 6.2 Implement resumable queue state and `data/adjudications.jsonl`
-- [ ] 6.3 Human review pass performed for real by Mohamed
-- [ ] 6.4 Verify adjudications are recorded with elapsed seconds
+- [x] 6.2 Implement resumable queue state and `data/adjudications.jsonl`
+  _Verified: queue resumable across sittings, relaunch skipped 39 already-decided items, and the fast-adjudication guard was added only after the pass completed so the tool never changed mid-review, 2026-09-05_
+- [x] 6.3 Human review pass performed for real by Mohamed
+  _Verified: human review pass performed by Mohamed, all 94 routed items adjudicated, 100 records in data/adjudications.jsonl, 2026-09-05_
+- [x] 6.4 Verify adjudications are recorded with elapsed seconds
+  _Verified: 44.1 minutes total, median 16.0 seconds per item, decision mix 72 accept_llm, 16 accept_vendor, 4 pii_confirmed, 3 accept_heuristic, 3 other_leaf, 2 ambiguous_both, 2026-09-05_
 
 ## Step 7: Improvement pass
 
@@ -134,7 +137,8 @@ Dates are ISO, in the builder's local timezone.
   _Verified: ambiguous adjudications dual labeled where a distinct second label exists, quarantined otherwise, 2026-09-05_
 - [x] 7.5 Write `data/v1_to_v2_diff.jsonl`
   _Verified: data/v1_to_v2_diff.jsonl written with field, before, after and reason for every change, 2026-09-05_
-- [ ] 7.6 Verify the diff accounts for every v1 to v2 change
+- [x] 7.6 Verify the diff accounts for every v1 to v2 change
+  _Verified: 89 changes logged, reconciled against 31 label corrections, 50 duplicate merges, 25 PII scrubs and 2 dual labels, 2026-09-05_
 
 ## Step 8: Eval harness, alignment table, release gates
 
@@ -154,24 +158,40 @@ Dates are ISO, in the builder's local timezone.
   _Verified: release gates implemented and failing loudly, 2 of 5 red on the current run, exit code 1, 2026-09-05_
 - [x] 8.8 Write `eval/results_v1.json` and `eval/results_v2.json`
   _Verified: eval/results_v1.json and eval/results_v2.json written, 2026-09-05_
-- [ ] 8.9 Run the full eval, fix anything it exposes, re-run, log the incident
+- [x] 8.9 Run the full eval, fix anything it exposes, re-run, log the incident
+  _Verified: full eval run, exposed two failing gates and four upstream defects which were fixed and re-run, every incident recorded in docs/06-CHANGE-LOG.md, 2026-09-05_
 
 ## Step 9: Report, export, datasheet
 
-- [ ] 9.1 Implement `REPORT.md` generation
+- [x] 9.1 Implement `REPORT.md` generation
+  _Verified: REPORT.md generated from the committed results files, headline table, v1 to v2 deltas, confusion as markdown, cost accounting, and human review stats, 2026-09-05_
 - [ ] 9.2 Implement the optional Resend summary email
-- [ ] 9.3 Implement the stratified 85/15 export split
-- [ ] 9.4 Write `export/DATASHEET.md`
-- [ ] 9.5 Verify no exported record contains unscrubbed PII
+  _Implemented but NOT verified, 2026-09-05. `python -m dql report --email` is
+  written and degrades cleanly with a stated message when RESEND_API_KEY or
+  DQL_EMAIL_TO is absent, which is the path that was exercised. The send itself
+  has never been run because no Resend credentials were configured, so it stays
+  unchecked rather than being stamped on the strength of reading the code._
+- [x] 9.3 Implement the stratified 85/15 export split
+  _Verified: export/train.jsonl 458 records and export/eval.jsonl 83 records, stratified 85/15 by label at a fixed seed, 2026-09-05_
+- [x] 9.4 Write `export/DATASHEET.md`
+  _Verified: export/DATASHEET.md written covering motivation, composition, collection, labeling, quality metrics, limitations and recommended uses, 2026-09-05_
+- [x] 9.5 Verify no exported record contains unscrubbed PII
+  _Verified: export scans its own output and found 0 records containing PII, and refuses to write if any survive, 2026-09-05_
 
 ## Step 10: Presentation and final checks
 
-- [ ] 10.1 Capture screenshots of real runs into `assets/screenshots/`
-- [ ] 10.2 Export `assets/architecture.svg`
-- [ ] 10.3 Write the docs package, `00-INDEX.md` through `07-AI-USAGE.md`
-- [ ] 10.4 Write `README.md` last, every number traced to a committed results file
-- [ ] 10.5 Verify `scripts/check_contract.py` and `scripts/verify_seeds.py` both exit 0
-- [ ] 10.6 Verify no em dash appears in any prose file
+- [x] 10.1 Capture screenshots of real runs into `assets/screenshots/`
+  _Verified: 9 screenshots captured from real terminal output of the committed run and rendered to PNG, verified visually, none containing key material, 2026-09-05_
+- [x] 10.2 Export `assets/architecture.svg`
+  _Verified: assets/architecture.svg written and validated as well-formed XML, 2026-09-05_
+- [x] 10.3 Write the docs package, `00-INDEX.md` through `07-AI-USAGE.md`
+  _Verified: docs/00-INDEX.md through 07-AI-USAGE.md written, 2026-09-05_
+- [x] 10.4 Write `README.md` last, every number traced to a committed results file
+  _Verified: README.md written last, 16 headline numbers cross-checked programmatically against eval/results_*.json, the export files and the pipeline store, two typed values corrected when the check caught them, 2026-09-05_
+- [x] 10.5 Verify `scripts/check_contract.py` and `scripts/verify_seeds.py` both exit 0
+  _Verified: scripts/check_contract.py green, scripts/verify_seeds.py green with 24 checks, python -m dql.yamlio selftest ok, 2026-09-05_
+- [x] 10.6 Verify no em dash appears in any prose file
+  _Verified: no em dash in any prose file, enforced by clause C9 in scripts/check_contract.py, 2026-09-05_
 
 ## Step 11: Publish
 

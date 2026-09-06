@@ -11,7 +11,7 @@
     "reading": "Abstention is calibrated when the deterministic labeler scores materially lower on abstained items than on answered ones, which means the model abstained on genuinely hard tickets rather than at random."
   },
   "acceptable_alt_policy": "A prediction matching the documented acceptable_alt on a planted ambiguous ticket counts as correct.",
-  "accuracy_delta_points": 0.8787878787878789,
+  "accuracy_delta_points": 1.0606060606060619,
   "alignment_file": "eval/taxonomy_alignment.yaml",
   "corpus_size": 600,
   "duplicates": {
@@ -24,7 +24,7 @@
     "unmatched_clusters": 30,
     "unmatched_explained_by_shared_template_shape": 30
   },
-  "generated_at": "2026-09-06T00:29:31+00:00",
+  "generated_at": "2026-09-06T01:00:54+00:00",
   "heuristic_accuracy": 0.7533333333333333,
   "llm_accuracy": 0.8966666666666666,
   "pii": {
@@ -52,8 +52,8 @@
   "unreachable_note": "The induced taxonomy has no counterpart for these ground-truth leaves, so every ticket in them is a guaranteed error. They are 27 of 600 tickets, and they are counted as errors rather than excluded.",
   "v1_correct": 538,
   "v1_scored": 600,
-  "v2_accuracy": 0.9054545454545454,
-  "v2_correct": 498,
+  "v2_accuracy": 0.9072727272727272,
+  "v2_correct": 499,
   "v2_excludes_merged_duplicates": 50,
   "v2_scored": 550,
   "vendor_baseline_accuracy": 0.9333333333333333,

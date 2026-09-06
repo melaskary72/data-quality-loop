@@ -33,6 +33,17 @@ def cmd_status(args: argparse.Namespace) -> int:
         state.add_column("Cost USD", justify="right")
         for stage in STAGES:
             row = store.latest_run(conn, stage)
+            if row is None and stage == "review":
+                # Run records for review were added after the first human pass,
+                # so fall back to the adjudications themselves. They are the
+                # evidence that the pass happened.
+                adj = conn.execute(
+                    "SELECT COUNT(*) n, MAX(ts) last FROM adjudications"
+                ).fetchone()
+                if adj["n"]:
+                    state.add_row(stage, f"{adj['n']} adjudications on record",
+                                  adj["last"] or "", "0.0000")
+                    continue
             if row is None:
                 state.add_row(stage, "[dim]not run[/dim]", "", "")
             else:
